@@ -1,0 +1,8 @@
+node_modules
+dist
+coverage
+.tools
+.cache
+.local
+package-lock.json
+docs/HIGH_LEVEL_DESIGN.md

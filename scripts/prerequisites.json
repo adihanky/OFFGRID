@@ -1,0 +1,16 @@
+{
+  "node": {
+    "version": "24.22.1",
+    "directory": "node-v24.22.1-win-x64",
+    "executable": "node.exe",
+    "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-win-x64.zip",
+    "sha256": "d2046d28c2c3dcd211ac5145c0bf30e2047ef9dfb306693c8c6e2eccd8b95fa5"
+  },
+  "mongodb": {
+    "version": "8.0.34",
+    "directory": "mongodb-win32-x86_64-windows-8.0.34",
+    "executable": "bin/mongod.exe",
+    "url": "https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.34.zip",
+    "sha256": "6b021a0864494e4decf278b36477a29eb36072432773e4e62c2f42c302630db0"
+  }
+}
