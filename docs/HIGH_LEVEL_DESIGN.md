@@ -1,6 +1,6 @@
 # Secure P2P Asset Transfer System — High-Level Design
 
-Status: Approved by the user on 24 October 2026. Project foundation complete; feature implementation pending.
+Status: Approved by the user on 24 October 2026. Project foundation and authentication implemented; remaining feature modules pending.
 Date: 24 October 2026
 
 ## 1. Objective and proposed scope
@@ -92,8 +92,10 @@ Core invariants:
 
 | Collection | Main fields | Planned indexes |
 | --- | --- | --- |
-| `users` | normalizedEmail, publicHandle, passwordHash, status, timestamps | Unique normalized email; unique normalized handle |
+| `users` | normalizedEmail, publicHandle, displayName, optional passwordHash/googleSubject, emailVerified, status, timestamps | Unique normalized email; unique normalized handle; unique Google subject when present |
 | `sessions` | userId, tokenHash, expiresAt, revokedAt | Unique tokenHash; userId; TTL expiresAt |
+| `oauthAttempts` | hashed state ID, browserHash, verifier, nonce, expiresAt | Single-use ID; TTL expiresAt |
+| `authRateLimits` | hashed identity/window ID, hits, expiresAt | Unique ID; TTL expiresAt |
 | `assetTypes` | code, displayName, precision, status | Unique code |
 | `accounts` | userId, assetId, balanceUnits, status | Unique `(userId, assetId)` |
 | `transfers` | senderId, recipientId, assetId, quantityUnits, idempotencyKey, payloadHash, status, rejectionCode, timestamps | Unique `(senderId, idempotencyKey)`; `(senderId, createdAt desc, _id desc)`; `(recipientId, createdAt desc, _id desc)`; `(status, createdAt)` for recovery |
@@ -121,6 +123,7 @@ This structure detects modifications against a trusted retained checkpoint. A pr
 ## 7. Authentication, authorization, and chat
 
 - Hash passwords with Argon2id and an established library. Never persist plaintext passwords or log credentials.
+- Support Google OAuth 2.0 / OpenID Connect authorization-code sign-in with PKCE, browser-bound state, nonce, verified ID tokens, and stable provider subjects. Matching email alone never links accounts. Email sign-in uses passwords; email verification delivery and account linking remain future work. See `docs/AUTHENTICATION.md` for implemented behavior and configuration.
 - Use opaque, revocable sessions stored as hashes in MongoDB. Send the token in an HttpOnly, Secure, SameSite cookie. Enforce CSRF protection for state-changing HTTP requests and a strict origin allowlist for WebSocket connections.
 - Enforce resource authorization on each REST request, socket subscription, and message action. Expired or revoked sessions must lose socket access as well as HTTP access.
 - Use TLS for deployed HTTP and WebSocket traffic. Keep database credentials and session secrets outside source control; grant the application only necessary database privileges.
@@ -133,7 +136,7 @@ This structure detects modifications against a trusted retained checkpoint. A pr
 
 | Boundary | Proposed endpoints or events |
 | --- | --- |
-| Identity | `POST /auth/signup`, `POST /auth/signin`, `POST /auth/signout`, `GET /auth/me` |
+| Identity | `POST /auth/signup`, `POST /auth/signin`, `POST /auth/signout`, `GET /auth/me`, `GET /auth/csrf`, `GET /auth/providers`, `GET /auth/google`, `GET /auth/google/callback` |
 | Peers and balances | `GET /peers?handle=...`, `GET /accounts` |
 | Transfers | `POST /transfers` with `Idempotency-Key`, `GET /transfers`, `GET /transfers/:id` |
 | Chain | `GET /transfers/:id/chain` with participant authorization |
@@ -170,7 +173,7 @@ Required verification:
 5. Implement direct chat, transactional outbox, socket notifications, and recovery.
 6. Complete the UI, security checks, deployment documentation, and measured performance validation.
 
-Approved scope: server-coordinated simulation, fungible demo assets, immediate settlement, the TypeScript stack, a MongoDB replica set, a hash-linked audit chain, and server-mediated chat. Current implementation is limited to the project structure and prerequisite setup requested after approval.
+Approved scope: server-coordinated simulation, fungible demo assets, immediate settlement, the TypeScript stack, a MongoDB replica set, a hash-linked audit chain, and server-mediated chat. Current implementation includes the foundation, testing infrastructure, and email/Google authentication with revocable sessions. Wallets, transfers, ledger, chain, and chat remain planned.
 
 ## References
 

@@ -13,17 +13,21 @@
     "@nestjs/common": "12.2.0",
     "@nestjs/core": "12.2.0",
     "@nestjs/platform-express": "12.2.0",
+    "@node-rs/argon2": "2.2.2",
     "@p2p/contracts": "0.1.0",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
+    "cookie": "2.0.1",
     "dotenv": "18.0.9",
     "helmet": "8.3.0",
+    "jose": "6.2.13",
     "mongodb": "7.7.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@types/express": "5.0.6",
     "@types/node": "24.19.2",
     "tsx": "4.23.15"
   }

@@ -10,3 +10,30 @@ export interface ReadinessResponse {
     replicaSet: 'ready' | 'unavailable';
   };
 }
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  publicHandle: string;
+  displayName: string;
+  emailVerified: boolean;
+  signInMethod: 'email' | 'google';
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+}
+export interface AuthProvidersResponse {
+  google: boolean;
+  email: true;
+}
+export interface CsrfResponse {
+  csrfToken: string;
+}
+export interface SignInRequest {
+  email: string;
+  password: string;
+}
+export interface SignUpRequest extends SignInRequest {
+  publicHandle: string;
+}
