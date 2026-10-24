@@ -2,7 +2,9 @@
 
 A TypeScript workspace for a server-coordinated simulation of peer-to-peer asset transfers, with MongoDB persistence, a transfer audit chain, and direct chat.
 
-Current phase: project foundation. The React client, NestJS API, configuration, MongoDB connectivity, health endpoints, and development tooling are implemented. Authentication, wallet operations, transfers, history, chain execution, and chat are reserved modules; they do not expose feature endpoints yet.
+Current phase: authentication. Email/password sign-up/sign-in, Google OAuth, revocable cookie sessions, and client authentication screens are implemented alongside the foundation. Wallet operations, transfers, history, chain execution, and chat remain reserved modules.
+
+See [authentication setup and API documentation](docs/AUTHENTICATION.md) to configure Google and review session behavior.
 
 The [approved high-level design](docs/HIGH_LEVEL_DESIGN.md) defines the implementation scope and sequence.
 
@@ -15,7 +17,7 @@ apps/
     database/        Official MongoDB driver lifecycle and readiness checks
     health/          Liveness and readiness endpoints
     modules/
-      auth/          Sign up, sign in, sessions (reserved)
+      auth/          Email/Google sign-in, sign-up, cookie sessions, CSRF and throttling
       accounts/      Asset balances and peer lookup (reserved)
       transfers/     Validation and atomic execution (reserved)
       ledger/        Double-entry records (reserved)
@@ -25,6 +27,7 @@ apps/
   web/               React + Vite development client
 packages/
   contracts/         Shared API response types
+tests/               Unit tests and Cucumber functional scenarios
 scripts/             Windows bootstrap, database management, smoke checks
 docs/                Architecture and setup verification
 compose.yaml         Alternative development database via Docker
@@ -91,14 +94,18 @@ The single replica member advertises `127.0.0.1:27017` for clients running on th
 
 Copy `.env.example` to `.env` and keep actual credentials out of source control. The API validates configuration at startup. Shell environment variables take precedence over the file.
 
-| Variable              | Purpose                                                 |
-| --------------------- | ------------------------------------------------------- |
-| `NODE_ENV`            | `development`, `test`, or `production`                  |
-| `API_PORT`            | API listen port, default 3000                           |
-| `WEB_ORIGIN`          | Allowed browser origin, default `http://localhost:5173` |
-| `MONGODB_URI`         | Driver connection string with replica set configuration |
-| `MONGODB_DB`          | Application database name                               |
-| `MONGODB_REPLICA_SET` | Expected replica set name, default `rs0`                |
+| Variable               | Purpose                                                 |
+| ---------------------- | ------------------------------------------------------- |
+| `NODE_ENV`             | `development`, `test`, or `production`                  |
+| `API_PORT`             | API listen port, default 3000                           |
+| `WEB_ORIGIN`           | Allowed browser origin, default `http://localhost:5173` |
+| `MONGODB_URI`          | Driver connection string with replica set configuration |
+| `MONGODB_DB`           | Application database name                               |
+| `MONGODB_REPLICA_SET`  | Expected replica set name, default `rs0`                |
+| `SESSION_TTL_SECONDS`  | Session lifetime; defaults to 7 days                    |
+| `GOOGLE_CLIENT_ID`     | Optional Google web client ID                           |
+| `GOOGLE_CLIENT_SECRET` | Optional Google client secret, server only              |
+| `GOOGLE_REDIRECT_URI`  | Optional registered `/api/auth/google/callback` URL     |
 
 Vite's development proxy targets port 3000. If changing `API_PORT`, update `apps/web/vite.config.ts` too. Readiness returns 503 when the database is unavailable, the set name differs, or no writable primary is reachable. API startup requires an initial database connection; liveness is available after successful startup.
 
@@ -107,24 +114,30 @@ Vite's development proxy targets port 3000. If changing `API_PORT`, update `apps
 | `GET /api/health/live`  | API process is serving requests                         |
 | `GET /api/health/ready` | MongoDB connectivity and writable replica set readiness |
 
-Development MongoDB is unauthenticated and bound/exposed only to loopback. This setup is for local development; production requires credentials, TLS, restricted access, and a redundant deployment. No session secret or external account is needed at this scaffold stage.
+Development MongoDB is unauthenticated and bound/exposed only to loopback. This setup is for local development; production requires credentials, TLS, restricted access, and a redundant deployment. Email authentication needs no external account. Enable Google by configuring all three optional Google variables, as described in the authentication guide.
 
 ## Development commands
 
 Use `npm` after activating the local runtime, or replace it with `.\scripts\npm.ps1` on Windows.
 
-| Command             | Purpose                                              |
-| ------------------- | ---------------------------------------------------- |
-| `npm run dev`       | Build shared contracts and start API/client watchers |
-| `npm run build`     | Compile contracts, backend, and frontend             |
-| `npm run typecheck` | Check TypeScript across all workspaces               |
-| `npm run lint`      | ESLint with zero warnings                            |
-| `npm run format`    | Format source/configuration/docs with Prettier       |
-| `npm run check`     | Lint, type checking, builds, and format validation   |
-| `npm run db:verify` | Verify local MongoDB commit/rollback support         |
-| `npm run smoke`     | Verify running API, frontend, and proxy              |
+| Command                   | Purpose                                                                      |
+| ------------------------- | ---------------------------------------------------------------------------- |
+| `npm run dev`             | Build shared contracts and start API/client watchers                         |
+| `npm run build`           | Compile contracts, backend, and frontend                                     |
+| `npm run typecheck`       | Check TypeScript across all workspaces                                       |
+| `npm run lint`            | ESLint with zero warnings                                                    |
+| `npm run format`          | Format source/configuration/docs with Prettier                               |
+| `npm test`                | Unit tests and Cucumber functional scenarios with JUnit XML reports          |
+| `npm run test:unit`       | TypeScript unit tests using the Node.js test runner                          |
+| `npm run test:functional` | Executable Cucumber `.feature` scenarios                                     |
+| `npm run test:typecheck`  | Check TypeScript test sources                                                |
+| `npm run check`           | Lint, application/test type checks, both test suites, builds, and formatting |
+| `npm run db:verify`       | Verify local MongoDB commit/rollback support                                 |
+| `npm run smoke`           | Verify running API, frontend, and proxy                                      |
 
 Shared contracts are built before consumers. If editing contracts during development, rebuild them and restart `dev`. `npm run start -w @p2p/api` runs the compiled backend; frontend deployment will need an HTTPS reverse proxy for `/api` and future socket traffic. No hosting deployment has been configured.
+
+Every feature requires unit tests and Cucumber scenarios covering happy flows, negative flows, and edge cases. Tests produce JUnit XML reports under `.local/test-results/`, plus a Cucumber HTML report. Unit tests and health scenarios use isolated fixtures. Auth scenarios exercise the full app and temporary databases on the local MongoDB replica set, so start it before `npm test` or `npm run check`. See [the testing guide](tests/README.md) for commands, coverage, and how to add tests.
 
 ## Prerequisite references
 
