@@ -6,20 +6,21 @@ This is the shared handoff document for work across agents and chats. Read it fi
 
 ## Current snapshot
 
-| Item                          | State                                                                                            |
-| ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| Project                       | Secure P2P Asset Transfer System                                                                 |
-| Repository                    | <https://github.com/adihanky/OFFGRID>                                                            |
-| Local workspace               | `D:\P2P-OFFGRID`                                                                                 |
-| Main branch                   | `main`                                                                                           |
-| Active feature branch         | `feature/Auth` (case-sensitive spelling)                                                         |
-| Published baseline            | `24b3a90` - `chore: scaffold secure P2P asset transfer workspace`                                |
-| Remote tracking               | `main` tracks `origin/main`; `feature/Auth` tracks `origin/feature/Auth`                         |
-| Completed work                | Foundation, agent/test rules, email/Google authentication, sessions, client screens and tests    |
-| Next module                   | Accounts, balances, peer lookup and controlled demo fixtures                                     |
-| Authentication implementation | Implemented; Google settings loaded and local redirect verified; real consent remains unverified |
+| Item                          | State                                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| Project                       | Secure P2P Asset Transfer System                                                                    |
+| Repository                    | <https://github.com/adihanky/OFFGRID>                                                               |
+| Local workspace               | `D:\P2P-OFFGRID`                                                                                    |
+| Main branch                   | `main`                                                                                              |
+| Active feature branch         | `feature/Auth` (case-sensitive spelling)                                                            |
+| Published baseline            | `24b3a90` - `chore: scaffold secure P2P asset transfer workspace`                                   |
+| Published authentication      | `b2bf0f8` - `feat(auth): add Google and email authentication with scenario tests` on `feature/Auth` |
+| Remote tracking               | `main` tracks `origin/main`; `feature/Auth` tracks `origin/feature/Auth`                            |
+| Completed work                | Foundation, agent/test rules, email/Google authentication, sessions, client screens and tests       |
+| Next module                   | Accounts, balances, peer lookup and controlled demo fixtures                                        |
+| Authentication implementation | Implemented; Google settings loaded and local redirect verified; real consent remains unverified    |
 
-The baseline commit was pushed to both branches. This document was added afterward on `feature/Auth`. Branch tips, working-tree changes, running services, and account sign-in are live state: check them rather than assuming this snapshot is still current.
+The foundation baseline was pushed to both branches. Authentication, tests, agent rules, module architecture documentation, and this handover were committed and pushed to `feature/Auth` as `b2bf0f8`. The `main` branch retains the foundation baseline. Branch tips, working-tree changes, running services, and account sign-in are live state: check them rather than assuming this snapshot is still current.
 
 ## First steps in a new chat
 
@@ -195,6 +196,14 @@ Current auth plus health coverage: the final `npm run check` passed on 24 Octobe
 ## Handoff log
 
 Keep newest entries first. Add the actual branch/commit or PR, concrete changes, checks with results, unresolved issues, and the next action. When correcting a stale snapshot, update the relevant section as well as recording the change here.
+
+### 24 October 2026 - Auth feature committed and pushed
+
+- Branch: `feature/Auth`. Commit `b2bf0f89b3f784e777775de73ceb95c5e83cb989` (`feat(auth): add Google and email authentication with scenario tests`) was successfully pushed to `origin/feature/Auth` at the user's request. `main` was not changed.
+- Published 44 files covering authentication, client screens, unit/Cucumber tests and glue, test infrastructure, agent rules, architecture documentation, and this handover. This follow-up entry records the successful publication; check Git history for the latest documentation commit.
+- Validation: fetched the remote feature branch and confirmed no divergent commits; checked all 44 pending files for the configured Google client ID/secret without displaying values; confirmed `.env` is ignored and untracked. Staged whitespace and documentation formatting checks passed. After the auth push, local HEAD and `origin/feature/Auth` matched exactly and the working tree was clean.
+- The earlier full check remains successful: 56 unit tests and 53 scenarios / 402 steps, lint, type checks, builds, and formatting. Feature suites were not rerun for this commit/publication task because application behavior had not changed since that check.
+- Next: complete real Google consent verification, then continue the next requested module with its own architecture document and required tests. Credentials remain local in `.env`.
 
 ### 24 October 2026 - Per-module architecture documentation rule
 
