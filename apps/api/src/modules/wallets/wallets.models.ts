@@ -9,6 +9,10 @@ export interface WalletRecord {
   eligibilityRevision: Long;
   createdAt: Date;
   updatedAt: Date;
+  displayName?: string;
+  configurationRevision?: Long;
+  preferredAssetId?: ObjectId | null;
+  setupCompletedAt?: Date;
 }
 export interface WalletBindingRecord {
   _id: ObjectId;

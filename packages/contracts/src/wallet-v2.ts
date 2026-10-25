@@ -77,11 +77,33 @@ export interface WalletBindingView {
   address: string;
   status: BindingLifecycle;
   revision: string;
+  networkName?: string;
+  chainId?: string;
+}
+export interface WalletNetwork {
+  id: string;
+  displayName: string;
+  chainId: string;
+  genesisHash: string;
+  environment: 'LOCAL' | 'TESTNET';
+  status: 'ACTIVE' | 'PAUSED';
+  revision: string;
+}
+export interface WalletChallenge {
+  id: string;
+  message: string;
+  expiresAt: string;
+  address: string;
+  networkId: string;
 }
 export interface WalletV2 {
   id: string;
   status: WalletLifecycle;
   revision: string;
+  displayName?: string;
+  configured?: boolean;
+  configurationRevision?: string;
+  preferredAssetId?: string | null;
   bindings: WalletBindingView[];
   holdings: Array<{
     asset: AssetV2;

@@ -21,6 +21,8 @@ import { demoAssetView } from '../wallets/wallets.service.js';
 import type { RoleGrantRecord } from '../wallets/wallets.models.js';
 import { parseInput } from '../assets/asset-input.js';
 import { assertDemoTarget } from '../accounts/demo-target.js';
+import { NetworksService, networkView } from '../networks/networks.service.js';
+import { rpcUrl } from '../networks/rpc.js';
 
 const reason = z.string().trim().min(3).max(200);
 const revision = z.string().regex(/^(0|[1-9][0-9]{0,17})$/);
@@ -59,6 +61,7 @@ export class AdminService implements OnModuleInit {
     @Inject(DatabaseService) readonly database: DatabaseService,
     @Inject(AccountsService) readonly accounts: AccountsService,
     @Inject(ENVIRONMENT) readonly environment: Environment,
+    @Inject(NetworksService) readonly networks: NetworksService,
   ) {}
   get grants() {
     return this.database.db.collection<RoleGrantRecord>('roleGrants', { promoteLongs: false });
@@ -508,5 +511,92 @@ export class AdminService implements OnModuleInit {
         createdAt: (row['createdAt'] as Date).toISOString(),
       })),
     }));
+  }
+  async networkList(actor: string) {
+    return this.transaction(actor, 'ASSET_ADMIN', async (session) => ({
+      networks: (
+        await this.networks.networks
+          .find({}, { session })
+          .sort({ displayName: 1 })
+          .limit(100)
+          .toArray()
+      ).map((network) => ({ ...networkView(network), rpcUrl: network.rpcUrl })),
+    }));
+  }
+  async createNetwork(actor: string, value: unknown) {
+    await this.transaction(actor, 'ASSET_ADMIN', async () => undefined);
+    const prepared = await this.networks.prepare(value);
+    return this.transaction(actor, 'ASSET_ADMIN', async (session) => {
+      const network = await this.networks.create(prepared, session);
+      await this.audit(actor, 'NETWORK_VERIFIED', network._id, prepared.reason, session);
+      await this.database.db.collection('configurationRevisions').insertOne(
+        {
+          entityId: network._id,
+          revision: network.revision,
+          value: { ...networkView(network), rpcUrl: network.rpcUrl },
+          actorId: objectId(actor),
+          reason: prepared.reason,
+          createdAt: new Date(),
+        },
+        { session },
+      );
+      return { network: networkView(network) };
+    });
+  }
+  async networkStatus(actor: string, id: string, value: unknown) {
+    const input = parseInput(
+      z.strictObject({
+        revision: z.string().regex(/^(0|[1-9][0-9]*)$/),
+        status: z.enum(['ACTIVE', 'PAUSED']),
+        reason: z.string().trim().min(3).max(200),
+        rpcUrl: z.string().max(500).optional(),
+        displayName: z.string().trim().min(1).max(60).optional(),
+      }),
+      value,
+    );
+    await this.transaction(actor, 'ASSET_ADMIN', async () => undefined);
+    const old = await this.networks.networks.findOne({ _id: objectId(id) });
+    if (!old) throw new NotFoundException();
+    const provider = {
+      ...old,
+      rpcUrl:
+        input.rpcUrl === undefined
+          ? old.rpcUrl
+          : rpcUrl(input.rpcUrl, this.environment, old.environment === 'LOCAL').href,
+    };
+    if (
+      (input.status === 'ACTIVE' || provider.rpcUrl !== old.rpcUrl) &&
+      (await this.networks.identity(provider)) !== old.genesisHash
+    )
+      throw new ConflictException('Network identity changed.');
+    return this.transaction(actor, 'ASSET_ADMIN', async (session) => {
+      const row = await this.networks.networks.findOneAndUpdate(
+        { _id: old._id, revision: toLong(BigInt(input.revision)) },
+        {
+          $set: {
+            status: input.status,
+            rpcUrl: provider.rpcUrl,
+            displayName: input.displayName ?? old.displayName,
+            updatedAt: new Date(),
+          },
+          $inc: { revision: toLong(1n) },
+        },
+        { session, returnDocument: 'after' },
+      );
+      if (!row) throw new ConflictException('Network changed. Refresh before editing.');
+      await this.audit(actor, `NETWORK_${input.status}`, row._id, input.reason, session);
+      await this.database.db.collection('configurationRevisions').insertOne(
+        {
+          entityId: row._id,
+          revision: row.revision,
+          value: { ...networkView(row), rpcUrl: row.rpcUrl },
+          actorId: objectId(actor),
+          reason: input.reason,
+          createdAt: new Date(),
+        },
+        { session },
+      );
+      return { network: networkView(row) };
+    });
   }
 }

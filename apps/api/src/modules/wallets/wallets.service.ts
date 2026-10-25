@@ -16,6 +16,10 @@ import { IdentityEligibility } from '../auth/identity-eligibility.service.js';
 import { parseInput, recipientLookupSchema } from '../assets/asset-input.js';
 import type { AssetRecord } from '../accounts/accounts.models.js';
 import type { WalletRecord } from './wallets.models.js';
+import type { WalletBindingRecord } from './wallets.models.js';
+import { getAddress } from 'ethers';
+import { z } from 'zod';
+import { TRANSACTION_OPTIONS } from '../accounts/accounts.service.js';
 
 interface ResolutionRecord {
   _id: ObjectId;
@@ -109,12 +113,26 @@ export class WalletsService implements OnModuleInit {
         message: 'This account needs wallet migration before using the new wallet.',
       });
     const balances = await this.accounts.wallet(userId);
+    const bindings = await this.database.db
+      .collection<WalletBindingRecord>('walletBindings', { promoteLongs: false })
+      .find({ walletId: wallet._id })
+      .toArray();
     const assets = await this.accounts.assets.find({}).sort({ code: 1 }).toArray();
     return {
       id: wallet._id.toHexString(),
       status: wallet.status,
       revision: wallet.eligibilityRevision.toString(),
-      bindings: [],
+      displayName: wallet.displayName ?? 'My wallet',
+      configured: Boolean(wallet.setupCompletedAt),
+      configurationRevision: wallet.configurationRevision?.toString() ?? '0',
+      preferredAssetId: wallet.preferredAssetId?.toHexString() ?? null,
+      bindings: bindings.map((binding) => ({
+        id: binding._id.toHexString(),
+        networkId: binding.networkId.toHexString(),
+        address: getAddress(binding.normalizedAddress),
+        status: binding.status,
+        revision: binding.revision.toString(),
+      })),
       holdings: balances.accounts
         .filter((balance) =>
           assets.some(
@@ -131,6 +149,66 @@ export class WalletsService implements OnModuleInit {
           status:
             wallet.status === 'ACTIVE' && balance.status === 'active' ? 'AVAILABLE' : 'UNAVAILABLE',
         })),
+    };
+  }
+  async configure(caller: string, value: unknown) {
+    const input = parseInput(
+      z.strictObject({
+        displayName: z.string().trim().min(1).max(60),
+        preferredAssetId: z
+          .string()
+          .regex(/^[a-f0-9]{24}$/)
+          .nullable(),
+        revision: z.string().regex(/^(0|[1-9][0-9]*)$/),
+      }),
+      value,
+    );
+    const session = this.database.client.startSession();
+    try {
+      await session.withTransaction(async () => {
+        const wallet = await this.wallets.findOne(
+          { userId: objectId(caller), status: 'ACTIVE' },
+          { session },
+        );
+        if (!wallet) throw new ConflictException('An active wallet is required.');
+        if ((wallet.configurationRevision?.toString() ?? '0') !== input.revision)
+          throw new ConflictException('Wallet settings changed. Refresh before saving.');
+        if (
+          input.preferredAssetId &&
+          !(await this.accounts.assets.findOne(
+            { _id: objectId(input.preferredAssetId), status: 'active' },
+            { session },
+          ))
+        )
+          throw new ConflictException('Preferred asset is unavailable.');
+        await this.wallets.updateOne(
+          { _id: wallet._id },
+          {
+            $set: {
+              displayName: input.displayName,
+              preferredAssetId: input.preferredAssetId ? objectId(input.preferredAssetId) : null,
+              setupCompletedAt: new Date(),
+              updatedAt: new Date(),
+            },
+            $inc: { configurationRevision: toLong(1n) },
+          },
+          { session },
+        );
+      }, TRANSACTION_OPTIONS);
+    } finally {
+      await session.endSession();
+    }
+    return { wallet: await this.own(caller) };
+  }
+  async catalogue() {
+    return {
+      assets: (
+        await this.accounts.assets
+          .find({ lifecycle: { $ne: 'DRAFT' } })
+          .sort({ code: 1 })
+          .limit(100)
+          .toArray()
+      ).map(demoAssetView),
     };
   }
   async resolve(caller: string, value: unknown): Promise<RecipientResolutionView> {

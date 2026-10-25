@@ -17,6 +17,8 @@ import { AuthGuard, type AuthenticatedRequest } from '../auth/auth.guard.js';
 import { requireCsrf } from '../auth/auth.http.js';
 import { strictObject } from '../accounts/accounts.service.js';
 import { WalletsService } from './wallets.service.js';
+import { ExternalWalletService } from './external-wallet.service.js';
+import { NetworksService, networkView } from '../networks/networks.service.js';
 
 @Controller('v2')
 @UseGuards(AuthGuard)
@@ -25,6 +27,8 @@ export class WalletsController {
     @Inject(WalletsService) readonly wallets: WalletsService,
     @Inject(ENVIRONMENT) readonly environment: Environment,
     @Inject(CustodyQueryService) readonly custody: CustodyQueryService,
+    @Inject(ExternalWalletService) readonly external: ExternalWalletService,
+    @Inject(NetworksService) readonly networks: NetworksService,
   ) {}
   @Get('wallet')
   @Header('Cache-Control', 'no-store')
@@ -43,6 +47,59 @@ export class WalletsController {
     requireCsrf(request, this.environment, request.auth.token);
     strictObject(query, []);
     return this.wallets.resolve(request.auth.user.id, body);
+  }
+  @Post('wallet/settings')
+  @Header('Cache-Control', 'no-store')
+  configure(@Req() req: AuthenticatedRequest, @Query() query: unknown, @Body() body: unknown) {
+    strictObject(query, []);
+    requireCsrf(req, this.environment, req.auth.token);
+    return this.wallets.configure(req.auth.user.id, body);
+  }
+  @Get('assets')
+  @Header('Cache-Control', 'no-store')
+  catalogue(@Query() query: unknown) {
+    strictObject(query, []);
+    return this.wallets.catalogue();
+  }
+  @Get('networks')
+  @Header('Cache-Control', 'no-store')
+  async supportedNetworks(@Query() query: unknown) {
+    strictObject(query, []);
+    return {
+      networks: (
+        await this.networks.networks
+          .find({ status: 'ACTIVE' })
+          .sort({ displayName: 1 })
+          .limit(100)
+          .toArray()
+      ).map(networkView),
+    };
+  }
+  @Post('wallet/binding-challenges')
+  @Header('Cache-Control', 'no-store')
+  challenge(@Req() req: AuthenticatedRequest, @Query() query: unknown, @Body() body: unknown) {
+    strictObject(query, []);
+    requireCsrf(req, this.environment, req.auth.token);
+    return this.external.challenge(req.auth.user.id, req.auth.token, body);
+  }
+  @Post('wallet/bindings')
+  @Header('Cache-Control', 'no-store')
+  verifyBinding(@Req() req: AuthenticatedRequest, @Query() query: unknown, @Body() body: unknown) {
+    strictObject(query, []);
+    requireCsrf(req, this.environment, req.auth.token);
+    return this.external.verify(req.auth.user.id, req.auth.token, body);
+  }
+  @Post('wallet/bindings/:id/revoke')
+  @Header('Cache-Control', 'no-store')
+  revokeBinding(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: unknown,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    strictObject(query, []);
+    requireCsrf(req, this.environment, req.auth.token);
+    return this.external.revoke(req.auth.user.id, id, body);
   }
   @Get('custody')
   @Header('Cache-Control', 'no-store')

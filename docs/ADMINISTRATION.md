@@ -1,10 +1,16 @@
 # Demo wallet administration
 
-The [admin module](../apps/api/src/modules/admin/admin.module.ts) supplies the browser's Assets & issuance, Demo data, Access and Audit controls. Assets in this release are **Demo · simulated**. Network/provider configuration, external address proofs, EVM settlement and global lookup/finality policy editors remain outside this demo slice.
+The [admin module](../apps/api/src/modules/admin/admin.module.ts) supplies Assets & issuance, Networks, Demo data, Access and Audit controls. Assets in this release are **Demo · simulated**. [Network/provider configuration and external ownership proof](NETWORKS.md) support ordinary EVM addresses on verified local/testnet networks. EVM balances/settlement and global lookup/finality policy editors remain pending.
+
+The main navigation exposes Assets and Administration to all signed-in users. Users without ASSET_ADMIN see the access requirement and can still configure their own application wallet. Existing administrators use **Administration → Assets & issuance** or **Networks**; registration does not automatically grant administrative privileges.
 
 ## Authorization and setup
 
 Set a random `ADMIN_SETUP_TOKEN` of at least 32 characters in the server environment. An authenticated user enters it once in Administration. Setup atomically creates the installation marker, grants ACCESS_ADMIN, ASSET_ADMIN, DEMO_OPERATOR and AUDITOR to that user, and writes an audit record. Registration order never grants privileges. The token is never returned by an API. Restarting with another token cannot repeat completed setup.
+
+The sign-in screen has **Set up administrator account**, with **Create administrator account** and **Use existing account** options. Registration creates an ordinary account. After sign-in, **Admin account** in the main navigation opens setup/access guidance for the current handle. On an unconfigured installation with a server setup token, the first administrator enters it in **Installation setup token → Enable administration**. Invalid tokens grant no roles; successful setup clears the token field and removes the one-use form.
+
+On an already configured installation, an ACCESS_ADMIN chooses **Admin account → Manage administrator accounts**, enters the newly registered public handle, selects a role and Active status, supplies a reason, and chooses **Update access**. Grant ASSET_ADMIN for asset/network configuration and ACCESS_ADMIN only when the account should manage other administrators. The new administrator signs in again or refreshes administration. Accounts without access see this requirement; they cannot enable roles by registering or selecting an account type.
 
 Every mutation requires session, Origin and CSRF checks. Authorization fences the live user and role grant inside the same transaction as policy changes or issuance; role updates serialize through the installation marker. The final active ACCESS_ADMIN cannot be revoked. API permissions apply independently of visible controls. Roles and setup do not change wallet balances.
 
@@ -33,4 +39,4 @@ Each domain operation has a stable issuance key or transfer UUID. A unique run k
 
 For CLI access to the same service, set `DEMO_OPERATOR_HANDLE` to an existing registered operator with an active DEMO_OPERATOR grant, set `DEMO_PASSWORD`, and run `.\scripts\npm.ps1 run seed:wallet-demo`. Keep passwords and setup tokens out of source control. Seeding refuses production/remote/unapproved databases. Negative cases use disposable fixtures.
 
-Executable coverage: [delivery scenarios](../tests/features/wallet-delivery.feature), [real browser scenarios](../tests/features/wallet-live-browser.feature), their step definitions and [unit tests](../tests/unit/wallet-delivery.test.mts). Current results and live-service evidence belong in [onboarding](../onboarding.md).
+Executable coverage: [delivery scenarios](../tests/features/wallet-delivery.feature), [real browser scenarios](../tests/features/wallet-live-browser.feature), [administrator onboarding scenarios](../tests/features/administrator-setup-browser.feature), their step definitions and [unit tests](../tests/unit/administrator-access.test.mts). Current results and live-service evidence belong in [onboarding](../onboarding.md).

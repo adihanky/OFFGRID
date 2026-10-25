@@ -1,16 +1,20 @@
 # Application wallets
 
-The demo slice includes a v2 browser wallet/send flow, explicit offline legacy backfill, participant custody views and [administration](ADMINISTRATION.md). See the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md) for the complete target. External binding proofs, network/provider configuration, global policy editors and real blockchain settlement remain pending.
+The browser includes v2 wallet/send, explicit wallet setup, participant custody views, [administration](ADMINISTRATION.md) and [verified EVM address linking](NETWORKS.md) on configured local/testnet networks. Explicit offline legacy backfill preserves existing users. See the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md) for the complete target. Global policy editors, real blockchain balances/settlement and mainnet activation remain pending.
 
 ## Ownership and registration
 
 [MongoAuthStore](../apps/api/src/modules/auth/mongo-auth.store.ts) inserts a registered user and one application wallet in the same snapshot/majority MongoDB transaction. A failure aborts both records. Email and Google registration share this store. The unique wallet `userId` index enforces one durable wallet per user. Sign-in does not issue balances or backfill legacy users.
 
-The [schema initializer](../apps/api/src/modules/wallets/wallet-schema.ts) creates additive wallet, binding and role collections with strict validators. Binding uniqueness covers revoked records too. External bindings remain unavailable. Privileged role setup/changes use the authenticated, CSRF-protected [administration API](ADMINISTRATION.md). No first-user administrator assignment exists.
+The [schema initializer](../apps/api/src/modules/wallets/wallet-schema.ts) creates additive wallet, binding and role collections with strict validators. Binding uniqueness covers revoked records too. External bindings require the [ownership-proof lifecycle](NETWORKS.md). Privileged role setup/changes use the authenticated, CSRF-protected [administration API](ADMINISTRATION.md). No first-user administrator assignment exists.
 
 Auth uses a small persistence factory, not the Wallets Nest module. Wallets depends on the existing Auth and Accounts modules. Accounts remains the sole simulation balance store.
 
 ## Current v2 routes
+
+Every signed-in user has visible navigation to **Set up wallet**, **Assets** and **Administration**. `POST /api/v2/wallet/settings` saves `{displayName,preferredAssetId,revision}` for the session owner's active wallet. Preferences have their own optimistic configuration revision and persist without issuing value, creating another wallet or changing public peer identity. A preferred asset must be active; an empty choice is null. The browser uses it as the initial send selection. Existing wallet records remain valid with default preferences until explicitly configured.
+
+`GET /api/v2/assets` supplies the displayable catalogue. Asset editing remains role protected; ordinary users see the required grant and where to request/access administration rather than hidden controls. Linking routes are `POST /api/v2/wallet/binding-challenges`, `POST /api/v2/wallet/bindings` and owner-only `POST /api/v2/wallet/bindings/:id/revoke`; details are in [Networks](NETWORKS.md).
 
 All routes require an authenticated active session and return `Cache-Control: no-store`. Mutation routes additionally require session-bound CSRF and the configured Origin. Unknown fields and query parameters are rejected.
 

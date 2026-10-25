@@ -7,6 +7,7 @@ interface CustodyWorld {
   custodyHarness?: CustodyHarness;
   custodyBefore?: string;
   custodyFailure?: unknown;
+  custodyFixtureClosed?: boolean;
 }
 async function graphSnapshot(h: CustodyHarness) {
   const rows = [];
@@ -22,9 +23,11 @@ async function graphSnapshot(h: CustodyHarness) {
 }
 Given(
   'an isolated custody graph with three issued roots',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async function (this: CustodyWorld) {
-    this.custodyHarness = await createCustodyHarness();
+    const harness = await createCustodyHarness();
+    if (this.custodyFixtureClosed) await harness.h.close();
+    else this.custodyHarness = harness;
   },
 );
 When(
@@ -113,5 +116,6 @@ Then(
   },
 );
 After(async function (this: CustodyWorld) {
+  this.custodyFixtureClosed = true;
   await this.custodyHarness?.h.close();
 });

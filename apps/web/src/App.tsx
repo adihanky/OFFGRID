@@ -5,6 +5,8 @@ import { WalletPanel } from './WalletPanel';
 import { browserIntentStorage, clearIntentOnSessionChange } from './transfer-client';
 import { AdminPanel } from './AdminPanel';
 import { clearWalletIntent, restoreWalletIntent } from './wallet-v2-client';
+import { WalletSetupPanel } from './WalletSetupPanel';
+import { AssetCataloguePanel } from './AssetCataloguePanel';
 
 const modules = [
   ['01', 'Authentication', 'Your identity and secure access.'],
@@ -87,9 +89,26 @@ export function App() {
       </div>
       {user && (
         <>
+          <nav className="primary-navigation" aria-label="Workspace navigation">
+            <a href="#wallet-title">Wallet & send</a>
+            <a href="#wallet-setup-title">Set up wallet</a>
+            <a href="#asset-catalogue-title">Assets</a>
+            <a href="#administration-title">Administration</a>
+            <a href="#admin-account-title">Admin account</a>
+          </nav>
           <WalletPanel
             key={`${user.id}:${workspaceVersion}`}
             user={user}
+            onSessionExpired={onSessionExpired}
+          />
+          <WalletSetupPanel
+            key={`setup:${user.id}:${workspaceVersion}`}
+            user={user}
+            onChanged={onWorkspaceChanged}
+            onSessionExpired={onSessionExpired}
+          />
+          <AssetCataloguePanel
+            key={`assets:${user.id}:${workspaceVersion}`}
             onSessionExpired={onSessionExpired}
           />
           <AdminPanel

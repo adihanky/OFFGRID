@@ -10,6 +10,13 @@
 * {
   box-sizing: border-box;
 }
+.administrator-entry {
+  margin-block: 20px;
+}
+.administrator-entry summary {
+  cursor: pointer;
+  font-weight: 600;
+}
 body {
   margin: 0;
 }
@@ -383,6 +390,75 @@ button:disabled {
   line-height: 1.7;
   overflow-wrap: anywhere;
 }
+.primary-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0 0 18px;
+}
+.primary-navigation a {
+  color: #183f36;
+  padding: 8px 14px;
+  border-radius: 24px;
+  border: 1px solid #bdc9c1;
+  background: #fcfcf9;
+  text-decoration: none;
+  font-size: 13px;
+  font-weight: 600;
+}
+.wallet-setup-callout {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 0 0 16px;
+}
+.wallet-setup-callout a {
+  color: #183f36;
+}
+.ownership-message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: #edf0e9;
+  padding: 16px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.admin-form textarea {
+  width: 100%;
+  display: block;
+  min-height: 100px;
+  margin-top: 8px;
+  padding: 12px;
+  border: 1px solid #bdc9c1;
+  border-radius: 7px;
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+.manual-proof {
+  margin-top: 20px;
+}
+.manual-proof summary {
+  cursor: pointer;
+}
+.linked-wallets {
+  list-style: none;
+  padding: 0;
+}
+.linked-wallets li {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: start;
+  border: 1px solid #bdc9c1;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.linked-wallets code {
+  word-break: break-all;
+}
 .signed-in .intro {
   display: none;
 }
@@ -481,6 +557,14 @@ button:disabled {
   grid-template-columns: 1.3fr 1fr;
   gap: 40px;
   align-items: start;
+}
+.admin-grid > * {
+  min-width: 0;
+}
+.admin-assets li {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .admin-form {
   max-width: 620px;

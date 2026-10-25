@@ -18,6 +18,9 @@ export const environmentSchema = z
     GOOGLE_CLIENT_SECRET: z.string().default(''),
     GOOGLE_REDIRECT_URI: z.string().default(''),
     ADMIN_SETUP_TOKEN: z.string().default(''),
+    EVM_RPC_ALLOWED_HOSTS: z
+      .string()
+      .default('ethereum-sepolia-rpc.publicnode.com,sepolia.drpc.org'),
   })
   .superRefine((value, context) => {
     const origin = URL.canParse(value.WEB_ORIGIN) ? new URL(value.WEB_ORIGIN) : null;

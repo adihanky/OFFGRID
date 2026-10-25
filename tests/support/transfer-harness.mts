@@ -83,7 +83,7 @@ export async function createTransferHarness(overrides: Record<string, string> = 
     } = {},
   ) {
     if (
-      !/^\/api\/(auth\/(csrf|signup|signin|signout|me)|accounts|peers|transfers(?:\/[a-f0-9]{24})?|v2\/(wallet|peer-resolutions|custody(?:\/[a-f0-9]{24})?|admin\/(?:status|setup|assets(?:\/[a-f0-9]{24})?|issuances|roles|audit|seed\/(?:preview|run))|transfers(?:\/[a-f0-9]{24})?))(?:\?|$)/.test(
+      !/^\/api\/(auth\/(csrf|signup|signin|signout|me)|accounts|peers|transfers(?:\/[a-f0-9]{24})?|v2\/(wallet(?:\/settings|\/binding-challenges|\/bindings(?:\/[a-f0-9]{24}\/revoke)?)?|assets|networks|peer-resolutions|custody(?:\/[a-f0-9]{24})?|admin\/(?:status|setup|(?:assets|networks)(?:\/[a-f0-9]{24})?|issuances|roles|audit|seed\/(?:preview|run|status))|transfers(?:\/[a-f0-9]{24})?))(?:\?|$)/.test(
         path,
       )
     )

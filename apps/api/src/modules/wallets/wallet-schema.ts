@@ -16,9 +16,13 @@ export async function initializeWalletSchema(db: Db) {
       userId: oid,
       status: { enum: ['ACTIVE', 'SUSPENDED'] },
       eligibilityRevision: revision,
+      displayName: { ...text, minLength: 1, maxLength: 60 },
+      configurationRevision: revision,
+      preferredAssetId: { bsonType: ['objectId', 'null'] },
+      setupCompletedAt: date,
       ...timestamps,
     },
-    undefined,
+    ['schemaVersion', 'userId', 'status', 'eligibilityRevision', 'createdAt', 'updatedAt'],
     { additionalProperties: false },
   );
   await db.collection('wallets').createIndex({ userId: 1 }, { unique: true, name: 'wallet_user' });

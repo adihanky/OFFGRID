@@ -84,6 +84,25 @@ export class WalletBrowser {
         case '/api/v2/custody':
           body = { events: [], nextCursor: null };
           break;
+        case '/api/v2/networks':
+          body = { networks: [] };
+          break;
+        case '/api/v2/assets':
+          body = {
+            assets: this.accounts.map((account) => ({
+              id: account.assetId,
+              code: account.code,
+              symbol: account.code,
+              displayName: account.displayName,
+              precision: account.precision,
+              kind: 'DEMO_CRYPTO',
+              mode: 'SIMULATED',
+              lifecycle: account.status === 'active' ? 'ACTIVE' : 'PAUSED',
+              revision: '0',
+              identityKey: `demo:${account.assetId}`,
+            })),
+          };
+          break;
         case '/api/v2/wallet':
           await this.delayAccounts;
           status = this.failAccounts ? 503 : 200;

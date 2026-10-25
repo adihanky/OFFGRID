@@ -7,6 +7,8 @@ import type {
   WalletRole,
 } from '@p2p/contracts';
 import { v2Api, walletRequest, walletWrite, WalletApiError } from './wallet-v2-client';
+import { NetworkAdminPanel } from './NetworkAdminPanel';
+import { administratorAccess } from './administrator-access';
 
 type Grant = { id: string; handle: string; role: WalletRole; status: string; revision: string };
 type Audit = { id: string; action: string; reason: string; createdAt: string };
@@ -68,6 +70,7 @@ export function AdminPanel({
     setTab((current) => {
       const required = {
         assets: 'ASSET_ADMIN',
+        networks: 'ASSET_ADMIN',
         demo: 'DEMO_OPERATOR',
         access: 'ACCESS_ADMIN',
         audit: 'AUDITOR',
@@ -154,13 +157,12 @@ export function AdminPanel({
     });
   }
   if (!status) return error ? <p role="alert">Administration unavailable: {error}</p> : null;
-  if (!status.roles.length && !status.setupAvailable && !status.maintenance) return null;
   return (
     <section className="wallet-section admin-section" aria-label="Administration">
       <div className="wallet-heading">
         <div>
           <p className="eyebrow">WORKSPACE CONTROLS</p>
-          <h2>Administration</h2>
+          <h2 id="administration-title">Administration</h2>
         </div>
         <button
           className="secondary-button"
@@ -170,6 +172,51 @@ export function AdminPanel({
           Refresh administration
         </button>
       </div>
+      <div className="admin-form administrator-entry" aria-labelledby="admin-account-title">
+        <h3 id="admin-account-title">Set up administrator account</h3>
+        <p>
+          Current account: <strong>@{user.publicHandle}</strong>.
+        </p>
+        {administratorAccess(status) === 'bootstrap' ? (
+          <p>
+            First administrator setup is available. Enter the installation setup token below to
+            enable administration for this account.
+          </p>
+        ) : administratorAccess(status) === 'manage' ? (
+          <>
+            <p>
+              Your administrator access is active. To add another administrator, have them register
+              an account, then grant their public handle the required roles in Access.
+            </p>
+            <button className="secondary-button" disabled={busy} onClick={() => setTab('access')}>
+              Manage administrator accounts
+            </button>
+          </>
+        ) : (
+          <>
+            <p>
+              {administratorAccess(status) === 'granted'
+                ? 'Your assigned administrator roles are active.'
+                : 'This account does not have administrator access.'}{' '}
+              Ask an access administrator to grant your public handle ASSET_ADMIN for asset and
+              network configuration, or ACCESS_ADMIN to manage other administrators. Then refresh
+              administration.
+            </p>
+            <p>
+              If this is a new installation and no administrator exists, the installation operator
+              must configure ADMIN_SETUP_TOKEN on the API and restart it. The one-use token form
+              will then appear here.
+            </p>
+          </>
+        )}
+      </div>
+      {!status.roles.includes('ASSET_ADMIN') && (
+        <p className="admin-notice">
+          Asset and network configuration requires an ASSET_ADMIN grant. Sign in with the configured
+          administrator account, or ask an access administrator to grant that role. Your own wallet
+          setup is available to every registered user.
+        </p>
+      )}
       {status.maintenance && (
         <p role="status">
           Wallet maintenance is in progress. New transfers and issuance are paused.
@@ -210,6 +257,7 @@ export function AdminPanel({
             {(
               [
                 ['assets', 'Assets & issuance', 'ASSET_ADMIN'],
+                ['networks', 'Networks', 'ASSET_ADMIN'],
                 ['demo', 'Demo data', 'DEMO_OPERATOR'],
                 ['access', 'Access', 'ACCESS_ADMIN'],
                 ['audit', 'Audit', 'AUDITOR'],
@@ -226,6 +274,13 @@ export function AdminPanel({
                 </button>
               ))}
           </nav>
+          {tab === 'networks' && status.roles.includes('ASSET_ADMIN') && (
+            <NetworkAdminPanel
+              user={user}
+              onChanged={onChanged}
+              onSessionExpired={onSessionExpired}
+            />
+          )}
           {tab === 'assets' && status.roles.includes('ASSET_ADMIN') && (
             <div className="admin-grid">
               <div>
@@ -625,29 +680,27 @@ export function AdminPanel({
                       onChange={(event) => setRole({ ...role, handle: event.target.value })}
                     />
                   </label>
-                  <label>
-                    Role
-                    <select
-                      value={role.role}
-                      onChange={(event) =>
-                        setRole({ ...role, role: event.target.value as WalletRole })
-                      }
-                    >
-                      {['ASSET_ADMIN', 'DEMO_OPERATOR', 'AUDITOR', 'ACCESS_ADMIN'].map((name) => (
-                        <option key={name}>{name}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label>
-                    Grant status
-                    <select
-                      value={role.status}
-                      onChange={(event) => setRole({ ...role, status: event.target.value })}
-                    >
-                      <option value="ACTIVE">Active</option>
-                      <option value="REVOKED">Revoked</option>
-                    </select>
-                  </label>
+                  <label htmlFor="administrator-grant-role">Role</label>
+                  <select
+                    id="administrator-grant-role"
+                    value={role.role}
+                    onChange={(event) =>
+                      setRole({ ...role, role: event.target.value as WalletRole })
+                    }
+                  >
+                    {['ASSET_ADMIN', 'DEMO_OPERATOR', 'AUDITOR', 'ACCESS_ADMIN'].map((name) => (
+                      <option key={name}>{name}</option>
+                    ))}
+                  </select>
+                  <label htmlFor="administrator-grant-status">Grant status</label>
+                  <select
+                    id="administrator-grant-status"
+                    value={role.status}
+                    onChange={(event) => setRole({ ...role, status: event.target.value })}
+                  >
+                    <option value="ACTIVE">Active</option>
+                    <option value="REVOKED">Revoked</option>
+                  </select>
                   <label>
                     Access change reason
                     <input

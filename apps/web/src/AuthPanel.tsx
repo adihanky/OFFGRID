@@ -14,6 +14,7 @@ export function AuthPanel({
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [administratorSetup, setAdministratorSetup] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -90,6 +91,8 @@ export function AuthPanel({
     setError('');
     try {
       await authApi.signOut();
+      setMode('signin');
+      setAdministratorSetup(false);
       onUserChange(null);
     } catch (failure) {
       if (failure instanceof AuthApiError && failure.status === 401) onUserChange(null);
@@ -200,6 +203,42 @@ export function AuthPanel({
               {mode === 'signin' ? 'Create an account' : 'Sign in'}
             </button>
           </p>
+          <details className="administrator-entry" open={administratorSetup}>
+            <summary
+              onClick={(event) => {
+                event.preventDefault();
+                setAdministratorSetup((open) => !open);
+              }}
+            >
+              Set up administrator account
+            </summary>
+            <p>
+              Create an account or sign in, then open Admin account. The first administrator needs
+              the installation setup token. Additional administrators need a role grant from an
+              existing access administrator.
+            </p>
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => {
+                setMode('signup');
+                setError('');
+              }}
+            >
+              Create administrator account
+            </button>{' '}
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => {
+                setMode('signin');
+                setError('');
+              }}
+            >
+              Use existing account
+            </button>
+            <p>Creating an account alone does not grant administrator access.</p>
+          </details>
         </>
       )}
       {error && (

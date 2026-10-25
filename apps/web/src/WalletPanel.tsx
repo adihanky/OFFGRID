@@ -90,7 +90,9 @@ export function WalletPanel({
         }));
         setWallet(response.wallet);
         setAccounts(balances);
-        setAssetId((current) => availableAssetId(balances, current));
+        setAssetId((current) =>
+          availableAssetId(balances, current || response.wallet.preferredAssetId || ''),
+        );
         setWalletFailed(false);
         setActivityVersion((value) => value + 1);
       }
@@ -229,9 +231,22 @@ export function WalletPanel({
           Refresh balances
         </button>
       </div>
+      <div className="wallet-setup-callout">
+        <a className="secondary-button" href="#wallet-setup-title">
+          Configure wallet
+        </a>
+        <a href="#asset-catalogue-title">Browse assets</a>
+      </div>
+      {wallet && !wallet.configured && (
+        <p className="admin-notice">
+          Your application wallet is ready. <a href="#wallet-setup-title">Finish wallet setup</a> to
+          name it, select a default asset or connect an external crypto wallet.
+        </p>
+      )}
       {wallet && (
         <p className="wallet-identity">
-          Wallet <code>{wallet.id}</code> · {wallet.status === 'ACTIVE' ? 'Active' : 'Suspended'}
+          {wallet.displayName ?? 'My wallet'} · Wallet <code>{wallet.id}</code> ·{' '}
+          {wallet.status === 'ACTIVE' ? 'Active' : 'Suspended'}
         </p>
       )}
       <p className="wallet-note">

@@ -44,6 +44,26 @@ export class AdminController {
   assets(@Req() req: AuthenticatedRequest, @Query() query: unknown) {
     return this.admin.assets(this.validate(req, query));
   }
+  @Get('networks')
+  @Header('Cache-Control', 'no-store')
+  networks(@Req() req: AuthenticatedRequest, @Query() query: unknown) {
+    return this.admin.networkList(this.validate(req, query));
+  }
+  @Post('networks')
+  @Header('Cache-Control', 'no-store')
+  createNetwork(@Req() req: AuthenticatedRequest, @Query() query: unknown, @Body() body: unknown) {
+    return this.admin.createNetwork(this.validate(req, query, true), body);
+  }
+  @Post('networks/:id')
+  @Header('Cache-Control', 'no-store')
+  networkStatus(
+    @Req() req: AuthenticatedRequest,
+    @Query() query: unknown,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ) {
+    return this.admin.networkStatus(this.validate(req, query, true), id, body);
+  }
   @Post('assets')
   @Header('Cache-Control', 'no-store')
   create(@Req() req: AuthenticatedRequest, @Query() query: unknown, @Body() body: unknown) {
