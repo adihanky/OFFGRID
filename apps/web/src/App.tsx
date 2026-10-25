@@ -7,6 +7,7 @@ import { AdminPanel } from './AdminPanel';
 import { clearWalletIntent, restoreWalletIntent } from './wallet-v2-client';
 import { WalletSetupPanel } from './WalletSetupPanel';
 import { AssetCataloguePanel } from './AssetCataloguePanel';
+import { workspaceLinks, workspaceSection } from './workspace-navigation';
 
 const modules = [
   ['01', 'Authentication', 'Your identity and secure access.'],
@@ -18,6 +19,9 @@ const modules = [
 export function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [workspaceVersion, setWorkspaceVersion] = useState(0);
+  const [fragment, setFragment] = useState(() => window.location.hash);
+  const section = workspaceSection(fragment);
+  const content = useRef<HTMLDivElement>(null);
   const currentUserId = useRef<string | null>(null);
   const onUserChange = useCallback((next: AuthUser | null) => {
     if (!next || (currentUserId.current !== null && currentUserId.current !== next.id))
@@ -25,11 +29,28 @@ export function App() {
     else restoreWalletIntent(next.id);
     clearIntentOnSessionChange(browserIntentStorage, currentUserId.current, next?.id ?? null);
     currentUserId.current = next?.id ?? null;
+    if (!next) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      setFragment('');
+    }
     setUser(next);
   }, []);
   const onSessionExpired = useCallback(() => onUserChange(null), [onUserChange]);
   const onWorkspaceChanged = useCallback(() => setWorkspaceVersion((version) => version + 1), []);
   const [status, setStatus] = useState<'checking' | 'ready' | 'unavailable'>('checking');
+
+  useEffect(() => {
+    const navigate = () => setFragment(window.location.hash);
+    window.addEventListener('hashchange', navigate);
+    return () => window.removeEventListener('hashchange', navigate);
+  }, []);
+
+  useEffect(() => {
+    if (user && fragment) {
+      content.current?.focus({ preventScroll: true });
+      window.scrollTo(0, 0);
+    }
+  }, [fragment, user]);
 
   useEffect(() => {
     let active = true;
@@ -90,48 +111,70 @@ export function App() {
       {user && (
         <>
           <nav className="primary-navigation" aria-label="Workspace navigation">
-            <a href="#wallet-title">Wallet & send</a>
-            <a href="#wallet-setup-title">Set up wallet</a>
-            <a href="#asset-catalogue-title">Assets</a>
-            <a href="#administration-title">Administration</a>
-            <a href="#admin-account-title">Admin account</a>
+            {workspaceLinks.map((link) => (
+              <a
+                key={link.hash}
+                href={link.hash}
+                aria-current={section === link.section ? 'page' : undefined}
+              >
+                {link.label}
+              </a>
+            ))}
+            <a className="admin-account-link" href="#admin-account-title">
+              Admin account
+            </a>
           </nav>
-          <WalletPanel
-            key={`${user.id}:${workspaceVersion}`}
-            user={user}
-            onSessionExpired={onSessionExpired}
-          />
-          <WalletSetupPanel
-            key={`setup:${user.id}:${workspaceVersion}`}
-            user={user}
-            onChanged={onWorkspaceChanged}
-            onSessionExpired={onSessionExpired}
-          />
-          <AssetCataloguePanel
-            key={`assets:${user.id}:${workspaceVersion}`}
-            onSessionExpired={onSessionExpired}
-          />
-          <AdminPanel
-            key={user.id}
-            user={user}
-            onChanged={onWorkspaceChanged}
-            onSessionExpired={onSessionExpired}
-          />
+          <div className="workspace-content" ref={content} tabIndex={-1}>
+            {/* Keep inactive panels mounted so navigation cannot discard a draft,
+              interrupt a pending transfer, or reset an administrator form. */}
+            <div hidden={section !== 'wallet'}>
+              <WalletPanel
+                key={`${user.id}:${workspaceVersion}`}
+                user={user}
+                onSessionExpired={onSessionExpired}
+              />
+            </div>
+            <div hidden={section !== 'setup'}>
+              <WalletSetupPanel
+                key={`setup:${user.id}:${workspaceVersion}`}
+                user={user}
+                onChanged={onWorkspaceChanged}
+                onSessionExpired={onSessionExpired}
+              />
+            </div>
+            <div hidden={section !== 'assets'}>
+              <AssetCataloguePanel
+                key={`assets:${user.id}:${workspaceVersion}`}
+                onSessionExpired={onSessionExpired}
+              />
+            </div>
+            <div hidden={section !== 'admin'}>
+              <AdminPanel
+                key={user.id}
+                user={user}
+                onChanged={onWorkspaceChanged}
+                onSessionExpired={onSessionExpired}
+                accountSetupRequested={fragment === '#admin-account-title'}
+              />
+            </div>
+          </div>
         </>
       )}
-      <section className="modules" aria-label="Application modules">
-        {modules.map(([number, title, description]) => (
-          <article key={number}>
-            <span className="module-number">{number}</span>
-            <h2>{title}</h2>
-            <p>{description}</p>
-            <span className="module-state">
-              {number === '01' || number === '02' ? 'Available' : 'Planned'}
-            </span>
-          </article>
-        ))}
-      </section>
-      <footer>Development scaffold · Simulated assets</footer>
+      {!user && (
+        <section className="modules" aria-label="Application modules">
+          {modules.map(([number, title, description]) => (
+            <article key={number}>
+              <span className="module-number">{number}</span>
+              <h2>{title}</h2>
+              <p>{description}</p>
+              <span className="module-state">
+                {number === '01' || number === '02' ? 'Available' : 'Planned'}
+              </span>
+            </article>
+          ))}
+        </section>
+      )}
+      <footer>Secure P2P · Simulated assets</footer>
     </main>
   );
 }

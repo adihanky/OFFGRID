@@ -16,10 +16,12 @@ export function AdminPanel({
   user,
   onChanged,
   onSessionExpired,
+  accountSetupRequested = false,
 }: {
   user: AuthUser;
   onChanged: () => void;
   onSessionExpired: () => void;
+  accountSetupRequested?: boolean;
 }) {
   const [status, setStatus] = useState<AdministrationStatus | null>(null);
   const [assets, setAssets] = useState<AssetV2[]>([]);
@@ -63,6 +65,10 @@ export function AdminPanel({
     reason: '',
   });
   const inFlight = useRef(false);
+  const accountDetails = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    if (accountSetupRequested && accountDetails.current) accountDetails.current.open = true;
+  }, [accountSetupRequested, status]);
   async function load(signal?: AbortSignal) {
     const next = await v2Api.status(signal);
     if (signal?.aborted) return;
@@ -156,7 +162,22 @@ export function AdminPanel({
       reason: '',
     });
   }
-  if (!status) return error ? <p role="alert">Administration unavailable: {error}</p> : null;
+  if (!status)
+    return (
+      <section className="wallet-section" aria-label="Administration">
+        <h2>Administration</h2>
+        {error ? (
+          <p role="alert">Administration unavailable: {error}</p>
+        ) : (
+          <p role="status">Loading administration...</p>
+        )}
+        {error && (
+          <button className="secondary-button" onClick={() => void perform(async () => undefined)}>
+            Retry administration
+          </button>
+        )}
+      </section>
+    );
   return (
     <section className="wallet-section admin-section" aria-label="Administration">
       <div className="wallet-heading">
@@ -172,8 +193,13 @@ export function AdminPanel({
           Refresh administration
         </button>
       </div>
-      <div className="admin-form administrator-entry" aria-labelledby="admin-account-title">
-        <h3 id="admin-account-title">Set up administrator account</h3>
+      <details
+        ref={accountDetails}
+        open={status.roles.length === 0 || accountSetupRequested}
+        className="admin-form administrator-entry"
+        aria-labelledby="admin-account-title"
+      >
+        <summary id="admin-account-title">Set up administrator account</summary>
         <p>
           Current account: <strong>@{user.publicHandle}</strong>.
         </p>
@@ -209,7 +235,7 @@ export function AdminPanel({
             </p>
           </>
         )}
-      </div>
+      </details>
       {!status.roles.includes('ASSET_ADMIN') && (
         <p className="admin-notice">
           Asset and network configuration requires an ASSET_ADMIN grant. Sign in with the configured
@@ -268,6 +294,7 @@ export function AdminPanel({
                 <button
                   key={id}
                   className={tab === id ? 'selected' : ''}
+                  aria-pressed={tab === id}
                   onClick={() => setTab(id)}
                 >
                   {label}

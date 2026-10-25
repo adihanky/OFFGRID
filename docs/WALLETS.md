@@ -12,6 +12,8 @@ Auth uses a small persistence factory, not the Wallets Nest module. Wallets depe
 
 ## Current v2 routes
 
+The signed-in frontend shows one task at a time: **Wallet & send**, **Assets**, **Set up wallet**, or **Administration**. Active navigation uses `aria-current`; existing heading bookmarks, browser Back/Forward and reload select the matching task. Unknown fragments fall back to the wallet. Inactive panels stay mounted but hidden to preserve unfinished forms and transfer recovery while navigating. Sign-out/session expiry removes all authenticated panels and resets the selected task. Navigation changes no API permissions, balances, migration or seed prerequisites. Roadmap cards appear only on the signed-out page. See [navigation scenarios](../tests/features/workspace-navigation.feature).
+
 Every signed-in user has visible navigation to **Set up wallet**, **Assets** and **Administration**. `POST /api/v2/wallet/settings` saves `{displayName,preferredAssetId,revision}` for the session owner's active wallet. Preferences have their own optimistic configuration revision and persist without issuing value, creating another wallet or changing public peer identity. A preferred asset must be active; an empty choice is null. The browser uses it as the initial send selection. Existing wallet records remain valid with default preferences until explicitly configured.
 
 `GET /api/v2/assets` supplies the displayable catalogue. Asset editing remains role protected; ordinary users see the required grant and where to request/access administration rather than hidden controls. Linking routes are `POST /api/v2/wallet/binding-challenges`, `POST /api/v2/wallet/bindings` and owner-only `POST /api/v2/wallet/bindings/:id/revoke`; details are in [Networks](NETWORKS.md).

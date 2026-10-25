@@ -4,6 +4,7 @@ import { walletRequest, WalletApiError } from './wallet-v2-client';
 export function AssetCataloguePanel({ onSessionExpired }: { onSessionExpired: () => void }) {
   const [assets, setAssets] = useState<AssetV2[]>([]),
     [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     const controller = new AbortController();
     void walletRequest<{ assets: AssetV2[] }>('v2/assets', { signal: controller.signal })
@@ -15,6 +16,9 @@ export function AssetCataloguePanel({ onSessionExpired }: { onSessionExpired: ()
           if (error instanceof WalletApiError && error.status === 401) onSessionExpired();
           else setError('Asset catalogue unavailable. Refresh the page to retry.');
         }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
   }, [onSessionExpired]);
@@ -31,10 +35,11 @@ export function AssetCataloguePanel({ onSessionExpired }: { onSessionExpired: ()
       </div>
       <p>
         View available assets here. Asset administrators can create, activate, pause and issue demo
-        assets using the controls below.
+        assets in Administration.
       </p>
       {error && <p role="alert">{error}</p>}
-      {!assets.length && !error && (
+      {loading && <p role="status">Loading assets...</p>}
+      {!loading && !assets.length && !error && (
         <p>
           No assets have been activated.{' '}
           <a href="#administration-title">Open asset configuration</a> to create the first asset.

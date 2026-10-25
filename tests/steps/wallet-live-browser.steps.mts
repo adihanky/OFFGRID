@@ -77,6 +77,7 @@ When(
       walletPosition && walletPosition.y < 400,
       'Wallet must be visible near the top after sign-in',
     );
+    await page.getByRole('link', { name: 'Administration', exact: true }).click();
     await page.getByLabel('Installation setup token').fill(token);
     await page.getByRole('button', { name: 'Enable administration' }).click();
     await page.getByRole('heading', { name: 'Create a demo asset' }).waitFor();
@@ -107,6 +108,7 @@ When(
     await page.getByLabel('Issuance quantity').fill('100.00');
     await page.getByLabel('Issuance reason').fill('Fund controlled browser wallet');
     await page.getByRole('button', { name: 'Issue demo units', exact: true }).click();
+    await page.getByRole('link', { name: 'Wallet & send', exact: true }).click();
     await page.locator('.wallet-balances').getByText('100.00', { exact: true }).waitFor();
   },
 );
@@ -152,6 +154,7 @@ Then(
   { timeout: 180000 },
   async function (this: LiveWorld) {
     const page = this.page!;
+    await page.getByRole('link', { name: 'Administration', exact: true }).click();
     await page.getByRole('button', { name: 'Access', exact: true }).click();
     await page.getByLabel('User handle').fill('browser_bob');
     await page.getByLabel('Access change reason').fill('Controlled access grant');

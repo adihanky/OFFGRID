@@ -4,6 +4,8 @@ The [admin module](../apps/api/src/modules/admin/admin.module.ts) supplies Asset
 
 The main navigation exposes Assets and Administration to all signed-in users. Users without ASSET_ADMIN see the access requirement and can still configure their own application wallet. Existing administrators use **Administration → Assets & issuance** or **Networks**; registration does not automatically grant administrative privileges.
 
+Administration is a dedicated workspace view. Administrator-account guidance is collapsed for existing administrators; **Admin account** opens this view and expands the guidance. Accounts without roles see the guidance expanded by default. The existing role-specific controls remain available within Administration. Loading and failure states include a retry action when the initial status request fails.
+
 ## Authorization and setup
 
 Set a random `ADMIN_SETUP_TOKEN` of at least 32 characters in the server environment. An authenticated user enters it once in Administration. Setup atomically creates the installation marker, grants ACCESS_ADMIN, ASSET_ADMIN, DEMO_OPERATOR and AUDITOR to that user, and writes an audit record. Registration order never grants privileges. The token is never returned by an API. Restarting with another token cannot repeat completed setup.

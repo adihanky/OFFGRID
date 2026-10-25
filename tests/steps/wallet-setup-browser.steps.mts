@@ -229,9 +229,11 @@ Then(
         .countDocuments({ chainId: '31338', status: 'ACTIVE' }),
       1,
     );
+    await page.getByRole('link', { name: 'Set up wallet', exact: true }).click();
     await page
       .getByLabel('Wallet network')
       .selectOption({ label: 'Browser configured EVM · local · chain 31338' });
+    await page.getByRole('link', { name: 'Administration', exact: true }).click();
     await page
       .getByRole('button', { name: 'Manage network Browser configured EVM', exact: true })
       .click();
@@ -240,6 +242,7 @@ Then(
     await page.getByLabel('Network change reason').fill('Update provider display policy');
     await page.getByRole('button', { name: 'Verify & save network', exact: true }).click();
     await page.getByRole('button', { name: 'Verify & add network', exact: true }).waitFor();
+    await page.getByRole('link', { name: 'Set up wallet', exact: true }).click();
     await page
       .getByLabel('Wallet network')
       .selectOption({ label: 'Renamed browser EVM · local · chain 31338' });
@@ -275,6 +278,7 @@ Then(
       .getByText('No EVM wallet was detected.', { exact: false })
       .waitFor();
     await page.getByText('Use a manually signed ownership message', { exact: true }).waitFor();
+    await page.getByRole('link', { name: 'Assets', exact: true }).click();
     await page.getByRole('link', { name: 'Configure assets', exact: true }).click();
     await page
       .getByText('Asset and network configuration requires an ASSET_ADMIN grant.', { exact: false })
@@ -295,9 +299,7 @@ When(
     await page.getByLabel('Password', { exact: true }).fill('Controlled-admin-browser-pass-2026');
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
     await page.getByRole('link', { name: 'Admin account', exact: true }).click();
-    await page
-      .getByRole('heading', { name: 'Set up administrator account', exact: true })
-      .waitFor();
+    await page.locator('details[open] > #admin-account-title').waitFor();
   },
 );
 When(
@@ -355,6 +357,7 @@ Then(
     await page.getByLabel('Email', { exact: true }).fill('admin_browser@example.invalid');
     await page.getByLabel('Password', { exact: true }).fill('Controlled-admin-browser-pass-2026');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await page.getByRole('link', { name: 'Admin account', exact: true }).click();
     await page.getByText('Your administrator access is active.', { exact: false }).waitFor();
     await page.getByRole('button', { name: 'Assets & issuance', exact: true }).waitFor();
   },
