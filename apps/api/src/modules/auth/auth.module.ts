@@ -7,10 +7,12 @@ import { AuthStore } from './auth.models.js';
 import { AuthService } from './auth.service.js';
 import { GoogleProvider, GOOGLE_HTTP, GOOGLE_KEYS } from './google.provider.js';
 import { MongoAuthStore } from './mongo-auth.store.js';
+import { IdentityEligibility } from './identity-eligibility.service.js';
 
 @Module({
   controllers: [AuthController],
   providers: [
+    IdentityEligibility,
     AuthService,
     AuthGuard,
     PasswordService,
@@ -25,6 +27,6 @@ import { MongoAuthStore } from './mongo-auth.store.js';
     },
     { provide: GOOGLE_HTTP, useValue: fetch },
   ],
-  exports: [AuthService, AuthGuard],
+  exports: [AuthService, AuthGuard, IdentityEligibility, PasswordService],
 })
 export class AuthModule {}

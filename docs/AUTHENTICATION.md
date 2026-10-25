@@ -27,21 +27,22 @@ flowchart LR
 
 Auth filenames below are relative to `apps/api/src/modules/auth/`; other paths are relative to the repository root.
 
-| Component / source                | Responsibility                                                                                                    |
-| --------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `auth.module.ts`                  | Registers controllers/providers, binds `AuthStore` to `MongoAuthStore`, and exports `AuthService`/`AuthGuard`     |
-| `auth.controller.ts`              | HTTP endpoints, write checks, safe responses, cookies, and fixed-origin redirects                                 |
-| `auth.service.ts`                 | Sign-up/sign-in orchestration, session lifecycle, rate limits, and single-use Google flows                        |
-| `auth.guard.ts`                   | Validates the session and active user, then attaches authenticated identity to the request                        |
-| `auth.models.ts`                  | User/session/OAuth records and the abstract persistence contract                                                  |
-| `mongo-auth.store.ts`             | MongoDB queries, validators/index initialization, duplicate handling, atomic OAuth consumption, and rate counters |
-| `auth.validation.ts`              | Zod input schemas, email/handle normalization, and rejection of unknown request fields                            |
-| `auth.crypto.ts`                  | Argon2id password operations, random tokens, token hashing, and session-bound CSRF derivation                     |
-| `auth.http.ts`                    | Cookie names/options, parsing, origin validation, and CSRF enforcement                                            |
-| `google.provider.ts`              | Google authorization URLs, code exchange, signature/claim verification, and sanitized provider failures           |
-| `apps/web/src/AuthPanel.tsx`      | Client forms, session restoration, Google navigation, status/error display, and sign-out                          |
-| `apps/web/src/auth.ts`            | Typed API calls, cookie credentials, timeouts, and CSRF-before-write sequencing                                   |
-| `packages/contracts/src/index.ts` | Public user, request, and response contracts shared by client and API                                             |
+| Component / source                | Responsibility                                                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `auth.module.ts`                  | Registers controllers/providers, binds `AuthStore` to `MongoAuthStore`, and exports `AuthService`/`AuthGuard`         |
+| `auth.controller.ts`              | HTTP endpoints, write checks, safe responses, cookies, and fixed-origin redirects                                     |
+| `auth.service.ts`                 | Sign-up/sign-in orchestration, session lifecycle, rate limits, and single-use Google flows                            |
+| `auth.guard.ts`                   | Validates the session and active user, then attaches authenticated identity to the request                            |
+| `auth.models.ts`                  | User/session/OAuth records and the abstract persistence contract                                                      |
+| `mongo-auth.store.ts`             | MongoDB queries, validators/index initialization, duplicate handling, atomic OAuth consumption, and rate counters     |
+| `auth.validation.ts`              | Zod input schemas, email/handle normalization, and rejection of unknown request fields                                |
+| `auth.crypto.ts`                  | Argon2id password operations, random tokens, token hashing, and session-bound CSRF derivation                         |
+| `auth.http.ts`                    | Cookie names/options, parsing, origin validation, and CSRF enforcement                                                |
+| `google.provider.ts`              | Google authorization URLs, code exchange, signature/claim verification, and sanitized provider failures               |
+| `identity-eligibility.service.ts` | Narrow public peer projection and transaction-aware active-user revision fence for settlement                         |
+| `apps/web/src/AuthPanel.tsx`      | Client forms, session restoration, Google navigation, status/error display, and sign-out; identity shared through App |
+| `apps/web/src/auth.ts`            | Typed API calls, cookie credentials, timeouts, and CSRF-before-write sequencing                                       |
+| `packages/contracts/src/index.ts` | Public user, request, and response contracts shared by client and API                                                 |
 
 The module uses the official MongoDB driver, `@node-rs/argon2` for Argon2id, `jose` for RS256/JWK verification, `cookie` for cookie handling, and native `fetch` for Google token exchange. The `GOOGLE_HTTP` and `GOOGLE_KEYS` injection tokens let tests replace the external network and signing-key source while exercising the real provider verification logic. Exact dependency versions are recorded in the manifests and lockfile.
 
@@ -53,7 +54,7 @@ The module uses the official MongoDB driver, `@node-rs/argon2` for Argon2id, `jo
 4. **Session restoration and protected requests:** the browser sends the HttpOnly session cookie. `AuthGuard` calls `AuthService.authenticate`, which hashes the token, queries an unexpired/unrevoked session, and loads an active user. Subsequent feature modules use this server-derived identity when enforcing their resource permissions.
 5. **Sign-out:** a valid session plus origin/CSRF checks allow the service to revoke the stored token hash; the controller clears the session and CSRF cookies. TTL deletion is asynchronous cleanup, so expiry/revocation remain explicit query conditions.
 
-An opaque database-backed session keeps revocation authoritative on the server and gives both identity providers the same application authentication behavior. The persistence contract supports isolated unit fixtures; functional scenarios use `MongoAuthStore` against real temporary databases. Session creation and prior-session revocation are sequential operations, and a user record may remain if later session creation fails; authentication does not claim an atomic multi-document transaction for these steps.
+An opaque database-backed session keeps revocation authoritative on the server and gives both identity providers the same application authentication behavior. The persistence contract supports isolated unit fixtures; functional scenarios use `MongoAuthStore` against real temporary databases. Mongo persistence now creates each new user and one application wallet in a snapshot/majority transaction, shared by email and Google registration. A wallet insert failure rolls back the user. Session creation and prior-session revocation remain sequential afterward; the user and wallet may remain if later session creation fails. Sign-in does not create wallets for legacy identities or issue balances. See [wallet architecture](WALLETS.md) for backfill requirements.
 
 ## Data owned by the module
 
@@ -133,6 +134,12 @@ Google failures redirect to the fixed web origin with `auth_error=google_failed`
 - Google accounts are identified by stable subject. A matching email never automatically links a Google identity to an existing password account. Generated Google handles are unique opaque identifiers. Returning users keep their stored email/handle even if Google's email changes.
 
 Email verification delivery, password reset, magic links, account linking, session management screens, and socket authentication are future work. Future protected REST modules should reuse `AuthGuard`; sockets must validate sessions and revocation separately. Production hosting and live Google consent have not been verified by the automated suites.
+
+## Wallet and Transfer integration
+
+Wallet/peer/transfer routes reuse `AuthGuard`; transfer POST explicitly calls `requireCsrf` with `request.auth.token`. The guard alone does not enforce CSRF. Peer responses use the separate minimal `PublicPeer` projection, because `AuthUser` includes email. See the [Wallet and Transfer LLD](WALLET_AND_TRANSFER_LLD.md) and [QA map](WALLET_AND_TRANSFER_QA.md) for exact contracts and current verification.
+
+`IdentityEligibility` is exported by AuthModule. It increments optional BSON Long `transferEligibilityRevision` conditional on active status using the settlement's `ClientSession`. Existing users need no backfill: an absent field increments from zero. Supported suspension writes the same user record, ordering it with settlement through transaction conflicts. Profiles expose only public ID/handle/name. The existing user validator accepts the optional revision; the public authentication response excludes it. Ordinary sign-up/sign-in never issues assets. App now shares authenticated identity with AuthPanel and WalletPanel; sign-out, account change and 401 clear private wallet/intent state. Auth behavior remains subject to the complete regression suites.
 
 ## Tests
 

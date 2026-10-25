@@ -31,6 +31,10 @@
     "db:init": "node scripts/db-init.mjs",
     "db:verify": "node scripts/db-verify.mjs",
     "db:stop": "node scripts/db-stop.mjs",
+    "seed:demo": "npm run build -w @p2p/contracts && npm run build -w @p2p/api && node scripts/seed-demo.mjs",
+    "seed:wallet-demo": "npm run build -w @p2p/contracts && npm run build -w @p2p/api && node scripts/seed-wallet-demo.mjs",
+    "wallet:migration:assess": "npm run build -w @p2p/contracts && npm run build -w @p2p/api && node scripts/assess-wallet-migration.mjs",
+    "wallet:migration:apply": "npm run build -w @p2p/contracts && npm run build -w @p2p/api && node scripts/migrate-wallets.mjs --execute",
     "smoke": "node scripts/smoke.mjs",
     "infra:up": "docker compose up -d --wait && npm run db:init",
     "infra:down": "docker compose down"
@@ -44,6 +48,7 @@
     "eslint": "10.13.0",
     "globals": "17.13.0",
     "mongodb": "7.7.0",
+    "playwright-core": "1.64.1",
     "prettier": "3.9.10",
     "tsx": "4.23.15",
     "typescript": "6.0.3",

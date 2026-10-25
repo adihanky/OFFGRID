@@ -1,11 +1,11 @@
-import { Inject, Injectable, type OnModuleDestroy, type OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, type OnApplicationShutdown, type OnModuleInit } from '@nestjs/common';
 import { MongoClient } from 'mongodb';
 import { ENVIRONMENT } from '../config/environment.module.js';
 import type { Environment } from '../config/environment.js';
 import type { ReadinessResponse } from '@p2p/contracts';
 
 @Injectable()
-export class DatabaseService implements OnModuleInit, OnModuleDestroy {
+export class DatabaseService implements OnModuleInit, OnApplicationShutdown {
   readonly client: MongoClient;
 
   constructor(@Inject(ENVIRONMENT) private readonly environment: Environment) {
@@ -25,7 +25,8 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     await this.client.connect();
   }
 
-  async onModuleDestroy(): Promise<void> {
+  // Workers drain in onModuleDestroy before any shared database connection closes.
+  async onApplicationShutdown(): Promise<void> {
     await this.client.close();
   }
 

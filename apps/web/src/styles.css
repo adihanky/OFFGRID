@@ -260,6 +260,292 @@ button:disabled {
   font-size: 13px;
   line-height: 1.6;
 }
+.wallet-section {
+  margin-bottom: 48px;
+  padding: 32px;
+  border: 1px solid #dce1d9;
+  border-radius: 16px;
+  background: #fcfcf9;
+}
+.wallet-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.wallet-heading h2 {
+  font-size: 28px;
+  margin: 12px 0 24px;
+}
+.secondary-button {
+  border: 1px solid #bdc9c1;
+  border-radius: 7px;
+  padding: 12px 16px;
+  background: white;
+  color: #19332d;
+}
+.wallet-balances {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 16px;
+  padding: 0;
+  list-style: none;
+}
+.wallet-balances li {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+  background: #edf0e9;
+  border-radius: 10px;
+  min-width: 0;
+}
+.wallet-balances strong {
+  font-size: 25px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.wallet-balances small {
+  color: #527066;
+  font-size: 12px;
+}
+.transfer-panel {
+  max-width: 620px;
+  margin-top: 32px;
+}
+.transfer-panel h3 {
+  font-size: 22px;
+}
+.transfer-panel h4 {
+  font-size: 19px;
+}
+.transfer-panel p {
+  line-height: 1.6;
+}
+.transfer-panel fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.transfer-panel label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+.transfer-panel input,
+.transfer-panel select {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #bdc9c1;
+  border-radius: 7px;
+  background: white;
+  font: inherit;
+  color: inherit;
+}
+.transfer-panel small {
+  display: block;
+  margin: 8px 0;
+  color: #68756e;
+  font-size: 12px;
+}
+.transfer-review dl {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 12px;
+}
+.transfer-review dt {
+  color: #68756e;
+}
+.transfer-review dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.transfer-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.transfer-actions .primary-button {
+  margin: 0;
+  width: auto;
+}
+.transfer-reference {
+  color: #68756e;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.wallet-identity,
+.wallet-note {
+  color: #527066;
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.signed-in .intro {
+  display: none;
+}
+.signed-in .auth-layout {
+  display: block;
+  margin: 28px 0;
+  padding: 0;
+}
+.signed-in .account-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: none;
+  padding: 20px 24px;
+}
+.account-summary h2 {
+  margin: 8px 0;
+  font-size: 22px;
+}
+.account-summary .eyebrow,
+.account-summary .auth-detail {
+  margin: 4px 0;
+}
+.account-summary .primary-button {
+  width: auto;
+  margin: 0;
+  padding: 12px 24px;
+}
+@media (max-width: 540px) {
+  .account-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .account-summary .auth-detail {
+    overflow-wrap: anywhere;
+  }
+}
+.wallet-identity code {
+  color: #183f36;
+}
+.activity-section {
+  border-top: 1px solid #dce1d9;
+  margin-top: 36px;
+  padding-top: 20px;
+}
+.activity-list details {
+  padding: 16px 0;
+  border-bottom: 1px solid #dce1d9;
+  overflow-wrap: anywhere;
+}
+.activity-list summary {
+  cursor: pointer;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.activity-list summary strong {
+  margin-right: auto;
+}
+.activity-list small {
+  color: #527066;
+}
+.custody-metadata {
+  font-size: 12px;
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+}
+.custody-metadata dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.workspace-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-bottom: 1px solid #dce1d9;
+  padding-bottom: 16px;
+  margin: 16px 0 24px;
+}
+.workspace-tabs button {
+  border: 1px solid #bdc9c1;
+  border-radius: 24px;
+  background: white;
+  color: #183f36;
+  padding: 10px 16px;
+}
+.workspace-tabs .selected {
+  background: #183f36;
+  color: white;
+}
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 40px;
+  align-items: start;
+}
+.admin-form {
+  max-width: 620px;
+  margin: 20px 0;
+}
+.admin-form fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.admin-form label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin: 16px 0;
+}
+.admin-form input,
+.admin-form select {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin-top: 8px;
+  border: 1px solid #bdc9c1;
+  border-radius: 7px;
+  font: inherit;
+  background: white;
+  color: inherit;
+}
+.admin-form input:disabled {
+  background: #edf0e9;
+}
+.admin-form p {
+  font-size: 13px;
+  line-height: 1.7;
+}
+.admin-assets {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.admin-assets li {
+  display: flex;
+  flex-direction: column;
+  align-items: start;
+  gap: 8px;
+  background: #edf0e9;
+  border-radius: 8px;
+  padding: 16px;
+}
+.admin-assets small {
+  color: #527066;
+}
+.admin-notice {
+  padding: 16px;
+  background: #edf0e9;
+  border-radius: 8px;
+}
+@media (max-width: 900px) {
+  .admin-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
 @media (max-width: 900px) {
   .auth-layout {
     grid-template-columns: 1fr;
@@ -274,6 +560,14 @@ button:disabled {
   }
 }
 @media (max-width: 540px) {
+  .wallet-section {
+    padding: 20px;
+  }
+  .wallet-heading,
+  .transfer-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
   .workspace {
     padding: 24px;
   }

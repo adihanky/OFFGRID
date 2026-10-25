@@ -1,7 +1,11 @@
 # Secure P2P Asset Transfer System — High-Level Design
 
-Status: Approved by the user on 24 October 2026. Project foundation and authentication implemented; remaining feature modules pending.
+Status: Approved by the user on 24 October 2026. Project foundation, authentication, and Wallet and Transfer implemented; automated verification and remaining evidence gaps are recorded in the module QA map and handover. History screens and chat remain pending.
 Date: 24 October 2026
+
+Design follow-up, 25 October 2026: the requested [wallet/asset overhaul HLD](WALLET_ASSET_OVERHAUL_HLD.md) and [LLD](WALLET_ASSET_OVERHAUL_LLD.md) propose UI administration, explicit user wallets, demo custody and a separate real ERC-20 settlement path. For future overhaul work they replace the wallet scope below; this document continues to describe the existing simulation architecture. Blockchain implementation and mainnet activation have not occurred. Peers are registered recipients with valid wallets, independent of login status.
+
+Module implementation follow-up: the [Wallet and Transfer HLD](WALLET_AND_TRANSFER.md), [LLD](WALLET_AND_TRANSFER_LLD.md) and [QA map](WALLET_AND_TRANSFER_QA.md) refine this module. Backend, client and recovery code implement those contracts; current test evidence is in [onboarding.md](../onboarding.md). The approved MVP scope below is unchanged. The module documents supply details where the original sketches omit fields or lifecycle rules.
 
 ## 1. Objective and proposed scope
 
@@ -62,6 +66,8 @@ Proposed screens: sign up/sign in; dashboard with balances and recent activity; 
 
 Peer lookup uses exact public handles and returns minimal profile information. Users cannot read another user's wallet, private history, chain details, or conversations. Full chain verification is an internal maintenance operation; the UI exposes participant-authorized transfer details and limited predecessor hash metadata.
 
+The initial Wallet and Transfer slice includes own-wallet reads, exact peer lookup, review/confirmation, submission and authorized outcome lookup. Full history filtering and chain explorer screens remain later work. Ledger, chain append and outbox persistence are prerequisites for its first committed transfer, even when their query screens or socket delivery are not available.
+
 ## 4. Multi-stage transfer verification and atomic execution
 
 1. **Authenticate:** validate the session; derive sender identity on the server.
@@ -76,6 +82,8 @@ Balances use signed 64-bit integer base units with explicit bounds and overflow 
 Use snapshot read concern and majority write concern for execution transactions. Conditional balance updates prevent concurrent requests from spending the same available balance. Shared chain-head updates also produce write conflicts; the driver retries eligible transactions with bounded retry policy. Keep network calls and message emission outside transaction callbacks because callbacks may run more than once.
 
 Transfer states: `PENDING -> COMMITTED` or `PENDING -> REJECTED`. Verification stages are checks, not separately committed financial states. A business rejection stores a stable reason after any execution transaction is aborted. Infrastructure failures leave a retryable pending request. A recovery worker retries pending requests using the same transfer identity and conditional state transition. Rejecting a request must also conditionally match `PENDING`, so it cannot overwrite a committed result.
+
+The module HLD further requires an attempt-token fence on settlement and rejection, with finite leases for worker scheduling. A stale executor cannot reject or commit over a newer attempt. Rejection requires a known abort; unknown commit outcomes stay unresolved. HTTP and recovery use one executor. Transaction-aware writes on participant identity/account records and asset chain-head eligibility synchronize suspension with settlement; snapshot reads alone are insufficient. Session expiry or sign-out after durable admission does not cancel an admitted transfer.
 
 For an unknown commit outcome, retry commit or reconcile persisted state using the same request identity. Do not report a definite rejection or initiate a new transfer merely because the connection timed out. Users can query status and safely repeat the original request.
 
@@ -97,14 +105,18 @@ Core invariants:
 | `oauthAttempts` | hashed state ID, browserHash, verifier, nonce, expiresAt | Single-use ID; TTL expiresAt |
 | `authRateLimits` | hashed identity/window ID, hits, expiresAt | Unique ID; TTL expiresAt |
 | `assetTypes` | code, displayName, precision, status | Unique code |
-| `accounts` | userId, assetId, balanceUnits, status | Unique `(userId, assetId)` |
-| `transfers` | senderId, recipientId, assetId, quantityUnits, idempotencyKey, payloadHash, status, rejectionCode, timestamps | Unique `(senderId, idempotencyKey)`; `(senderId, createdAt desc, _id desc)`; `(recipientId, createdAt desc, _id desc)`; `(status, createdAt)` for recovery |
-| `ledgerEntries` | transferId, accountId, assetId, side, quantityUnits, createdAt | Unique `(transferId, side)`; `(accountId, createdAt desc, _id desc)` |
+| `accounts` | ownerType, userId or systemKey, assetId, balanceUnits, status | Unique partial `(userId, assetId)` for users; unique partial `(systemKey, assetId)` for systems |
+| `transfers` | senderId, recipientId, assetId, quantityUnits, idempotencyKey, payloadVersion, payloadHash, status, rejectionCode, attemptToken, leaseUntil, attempts, nextAttemptAt, timestamps | Unique `(senderId, idempotencyKey)`; `(senderId, createdAt desc, _id desc)`; `(recipientId, createdAt desc, _id desc)`; `(status, nextAttemptAt, _id)` for recovery |
+| `ledgerEntries` | referenceKind, referenceId, accountId, assetId, side, quantityUnits, createdAt | Unique `(referenceKind, referenceId, side)`; `(accountId, createdAt desc, _id desc)` |
+| `demoIssuances` | fixtureKey, assetId, system/recipient account IDs, quantityUnits, createdAt | Unique fixtureKey; balanced journal in the same transaction |
 | `chainEntries` | assetId, sequence, transferId, previousHash, entryHash, canonicalPayload, createdAt | Unique `(assetId, sequence)`; unique transferId |
-| `chainHeads` | assetId, latestSequence, latestHash | Unique assetId |
+| `chainHeads` | assetId, latestSequence, latestHash, transfersEnabled | Unique assetId; eligibility changes coordinated with asset catalogue |
 | `conversations` | canonicalPairKey, participantIds, createdAt, lastMessageAt | Unique canonicalPairKey; `(participantIds, lastMessageAt desc, _id desc)` |
 | `messages` | conversationId, senderId, clientMessageId, text, createdAt | Unique `(conversationId, senderId, clientMessageId)`; `(conversationId, createdAt desc, _id desc)` |
 | `outboxEvents` | eventId, eventType, aggregateId, payload, nextAttemptAt, attempts, deliveredAt | Unique eventId; `(deliveredAt, nextAttemptAt)` |
+| `transferRateLimits` | hashed caller/window key, hits, expiresAt | Unique key; TTL expiresAt |
+
+Wallet design refinements are proposed: accounts distinguish ordinary owners from a non-login issuance system account; ledger references distinguish `transfer` from `demoIssuance`; transfers retain attempt/lease metadata; Auth users gain an optional transfer eligibility revision. See the module HLD for precise ownership, bounds and LLD prerequisites. Issuance participates in ledger reconciliation but is not represented as a user transfer in the transfer chain. Empty wallets project zero without issuing assets; zero accounts can be provisioned inside settlement. Transfers and their idempotency identities have no TTL in the proposed MVP.
 
 MongoDB validators enforce required types and allowed enums; application validation enforces business rules. Create collections and indexes before accepting traffic. TTL expiry is housekeeping: session validity is checked directly on every request because deletion is asynchronous. Retain transfer identities and outcomes for the history retention period so idempotency remains effective.
 
@@ -168,12 +180,12 @@ Required verification:
 
 1. Scaffold the client/backend, local MongoDB replica set, validation, schemas, and indexes.
 2. Implement sign up/sign in, sessions, peer lookup, wallets, and balanced demo fixtures.
-3. Implement transfer validation, idempotency, atomic ledger/balance updates, and failure/concurrency tests.
-4. Add the hash chain, authorized transfer history/detail screens, and reconciliation checks.
-5. Implement direct chat, transactional outbox, socket notifications, and recovery.
+3. Implement transfer validation, idempotency and atomic balance/ledger/chain/outbox writes together, including failure/concurrency tests and pending-transfer recovery. The Wallet and Transfer handoff specifies the dependency order; no successful settlement may omit a required atomic write.
+4. Add authorized transfer history/chain screens and extend reconciliation/integrity checks; the basic write path and invariant checks already belong to transfer implementation.
+5. Implement direct chat and outbox delivery over authorized sockets, extending the durable outbox and recovery infrastructure already introduced with transfers.
 6. Complete the UI, security checks, deployment documentation, and measured performance validation.
 
-Approved scope: server-coordinated simulation, fungible demo assets, immediate settlement, the TypeScript stack, a MongoDB replica set, a hash-linked audit chain, and server-mediated chat. Current implementation includes the foundation, testing infrastructure, and email/Google authentication with revocable sessions. Wallets, transfers, ledger, chain, and chat remain planned.
+Approved scope: server-coordinated simulation, fungible demo assets, immediate settlement, the TypeScript stack, a MongoDB replica set, a hash-linked audit chain, and server-mediated chat. Current implementation includes the foundation, testing infrastructure, email/Google authentication with revocable sessions, wallets, atomic transfers, balanced issuance, ledger/chain integrity checks, durable outbox storage and pending recovery. See [onboarding.md](../onboarding.md) for verification status. Full history/chain screens, chat and socket delivery remain planned.
 
 ## References
 

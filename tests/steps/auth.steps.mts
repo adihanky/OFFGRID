@@ -38,7 +38,8 @@ async function completeGoogle(world: AuthWorld, cancelled = false) {
   await remember(world, await world.harness.request(`/api/auth/google/callback?${query}`));
 }
 
-Before({ tags: '@auth', timeout: 20000 }, async function (this: AuthWorld, { pickle }) {
+// The full application now creates wallet/ledger/chain indexes as well as auth indexes.
+Before({ tags: '@auth', timeout: 60000 }, async function (this: AuthWorld, { pickle }) {
   this.harness = await createAuthHarness(
     !pickle.tags.some((tag) => tag.name === '@google_disabled'),
   );

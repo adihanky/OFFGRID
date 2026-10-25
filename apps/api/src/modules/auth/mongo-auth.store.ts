@@ -1,6 +1,8 @@
 import { ConflictException, Inject, Injectable, type OnModuleInit } from '@nestjs/common';
 import { MongoServerError, type ObjectId } from 'mongodb';
 import { DatabaseService } from '../../database/database.service.js';
+import { initializeWalletSchema } from '../wallets/wallet-schema.js';
+import { walletDocument } from '../wallets/wallet-document.js';
 import {
   AuthStore,
   type OAuthAttempt,
@@ -24,6 +26,7 @@ export class MongoAuthStore extends AuthStore implements OnModuleInit {
   }
 
   async onModuleInit() {
+    await initializeWalletSchema(this.database.db);
     const definitions = [
       [
         'users',
@@ -48,6 +51,7 @@ export class MongoAuthStore extends AuthStore implements OnModuleInit {
             status: { enum: ['active', 'disabled'] },
             createdAt: { bsonType: 'date' },
             updatedAt: { bsonType: 'date' },
+            transferEligibilityRevision: { bsonType: 'long' },
           },
         },
       ],
@@ -119,12 +123,23 @@ export class MongoAuthStore extends AuthStore implements OnModuleInit {
   }
 
   async insertUser(user: UserRecord) {
+    const session = this.database.client.startSession();
     try {
-      await this.users.insertOne(user);
+      await session.withTransaction(
+        async () => {
+          await this.users.insertOne(user, { session });
+          await this.database.db
+            .collection('wallets')
+            .insertOne(walletDocument(user._id, user.createdAt), { session });
+        },
+        { readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' }, timeoutMS: 10000 },
+      );
     } catch (error) {
       if (error instanceof MongoServerError && error.code === 11000)
         throw new ConflictException('Email or public handle is already registered.');
       throw error;
+    } finally {
+      await session.endSession();
     }
   }
   findUser(normalizedEmail: string) {

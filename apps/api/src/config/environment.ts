@@ -17,6 +17,7 @@ export const environmentSchema = z
     GOOGLE_CLIENT_ID: z.string().default(''),
     GOOGLE_CLIENT_SECRET: z.string().default(''),
     GOOGLE_REDIRECT_URI: z.string().default(''),
+    ADMIN_SETUP_TOKEN: z.string().default(''),
   })
   .superRefine((value, context) => {
     const origin = URL.canParse(value.WEB_ORIGIN) ? new URL(value.WEB_ORIGIN) : null;

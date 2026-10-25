@@ -1,0 +1,36 @@
+# Demo wallet administration
+
+The [admin module](../apps/api/src/modules/admin/admin.module.ts) supplies the browser's Assets & issuance, Demo data, Access and Audit controls. Assets in this release are **Demo · simulated**. Network/provider configuration, external address proofs, EVM settlement and global lookup/finality policy editors remain outside this demo slice.
+
+## Authorization and setup
+
+Set a random `ADMIN_SETUP_TOKEN` of at least 32 characters in the server environment. An authenticated user enters it once in Administration. Setup atomically creates the installation marker, grants ACCESS_ADMIN, ASSET_ADMIN, DEMO_OPERATOR and AUDITOR to that user, and writes an audit record. Registration order never grants privileges. The token is never returned by an API. Restarting with another token cannot repeat completed setup.
+
+Every mutation requires session, Origin and CSRF checks. Authorization fences the live user and role grant inside the same transaction as policy changes or issuance; role updates serialize through the installation marker. The final active ACCESS_ADMIN cannot be revoked. API permissions apply independently of visible controls. Roles and setup do not change wallet balances.
+
+## Contracts
+
+Routes below start with `/api/v2/admin` and return `Cache-Control: no-store`. Unknown request fields and query parameters are rejected.
+
+| Route                                                      | Role and behavior                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /status`                                              | Authenticated user's roles, setup availability, maintenance and demo-target availability.                                                                                                                                                         |
+| `POST /setup`                                              | One-use deployment token, `{token}`.                                                                                                                                                                                                              |
+| `GET /assets`, `POST /assets`                              | ASSET_ADMIN; list or create a draft with code, symbol, displayName, precision, supplyCap, minimum, maximum and reason. Exact decimal strings; precision 0–8; minimum ≤ maximum ≤ cap within int64 units.                                          |
+| `POST /assets/:id`                                         | ASSET_ADMIN; `If-Match` is the decimal revision. Set lifecycle ACTIVE/PAUSED/ARCHIVED, displayName, cap and amount limits with reason. Identity/precision stay immutable; archived assets cannot reactivate; cap cannot fall below issued supply. |
+| `POST /issuances`                                          | ASSET_ADMIN; `{assetId,handle,quantity,key,reason}`. UUID key identifies one issuance including retries. Active asset/wallet/user required; balanced journal and custody root commit with audit.                                                  |
+| `GET /roles`, `POST /roles`                                | ACCESS_ADMIN; exact handle, role, ACTIVE/REVOKED, expected revision (null for new grant), reason. Stale changes return 409.                                                                                                                       |
+| `GET /audit`                                               | AUDITOR; latest 50 redacted administration records.                                                                                                                                                                                               |
+| `POST /seed/preview`, `POST /seed/run`, `GET /seed/status` | DEMO_OPERATOR; guarded local demo target, preview, execute/resume and progress.                                                                                                                                                                   |
+
+Asset changes and immutable configuration revisions/audit commit together. Settlement rechecks current transfer limits for both v1 and v2. Issuance enforces the supply cap using the system issuance balance and existing per-asset write fence. Pausing prevents new settlement; terminal idempotent results remain replayable.
+
+## Seed profile and recovery
+
+The profile contains `userCount` 2–100 and `transferDepth` 0–100. Preview is caller scoped and expires after ten minutes. Execute requires the preview ID and a synthetic password of 12–128 characters. Passwords are never returned or stored in seed previews/runs. Existing synthetic identities are checked before domain writes; conflicts never reset credentials. The default creates `sample_alice`, `sample_bob`, `sample_carol` and `sample_dana` at `@example.invalid`, issues 1000.00 DEMO and 2.00000000 DETH once to each, and executes the four transfers in the overhaul LLD. This uses a separate handle namespace from the older `demo_alice`/`demo_bob` CLI fixture.
+
+Each domain operation has a stable issuance key or transfer UUID. A unique run key and ten-minute renewable lease serialize execution. If recovery claims a payment first, the seed caller polls that original transfer ID for up to 45 seconds. It never creates another payment to resolve a pending outcome. Financial effects survive lost acknowledgements; a failed run records INCOMPLETE and resumes using its original keys. After process termination, an outstanding lease must expire before resumption. Status shows operations and lease expiry. A completed matching rerun preserves subsequent spending and rechecks custody, ledger and transfer-chain integrity; another profile conflicts. The HTTP operation is synchronous and bounded; no autonomous seed worker is claimed.
+
+For CLI access to the same service, set `DEMO_OPERATOR_HANDLE` to an existing registered operator with an active DEMO_OPERATOR grant, set `DEMO_PASSWORD`, and run `.\scripts\npm.ps1 run seed:wallet-demo`. Keep passwords and setup tokens out of source control. Seeding refuses production/remote/unapproved databases. Negative cases use disposable fixtures.
+
+Executable coverage: [delivery scenarios](../tests/features/wallet-delivery.feature), [real browser scenarios](../tests/features/wallet-live-browser.feature), their step definitions and [unit tests](../tests/unit/wallet-delivery.test.mts). Current results and live-service evidence belong in [onboarding](../onboarding.md).

@@ -18,6 +18,7 @@ const suites = {
     return [
       '--import=tsx',
       '--test',
+      '--test-concurrency=1',
       '--test-timeout=15000',
       '--test-reporter=spec',
       '--test-reporter=junit',

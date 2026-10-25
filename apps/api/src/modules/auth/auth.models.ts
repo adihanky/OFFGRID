@@ -1,6 +1,7 @@
-import type { ObjectId } from 'mongodb';
+import type { Long, ObjectId } from 'mongodb';
 
 export interface UserRecord {
+  transferEligibilityRevision?: Long;
   _id: ObjectId;
   normalizedEmail: string;
   publicHandle: string;
