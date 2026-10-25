@@ -7,6 +7,7 @@ import { validSignUp, type GoogleMode } from '../support/auth-fixture.mjs';
 
 interface AuthWorld extends World {
   harness: AuthHarness;
+  authFixtureClosed?: boolean;
   response?: Response;
   body: unknown;
   previousSession?: string;
@@ -38,12 +39,17 @@ async function completeGoogle(world: AuthWorld, cancelled = false) {
   await remember(world, await world.harness.request(`/api/auth/google/callback?${query}`));
 }
 
-Before({ tags: '@auth', timeout: 20000 }, async function (this: AuthWorld, { pickle }) {
-  this.harness = await createAuthHarness(
+// The full application now creates wallet/ledger/chain indexes as well as auth indexes.
+Before({ tags: '@auth', timeout: 120000 }, async function (this: AuthWorld, { pickle }) {
+  // Creating all module collections/indexes on a cold portable replica set can exceed one minute.
+  const harness = await createAuthHarness(
     !pickle.tags.some((tag) => tag.name === '@google_disabled'),
   );
+  if (this.authFixtureClosed) await harness.close();
+  else this.harness = harness;
 });
 After({ tags: '@auth', timeout: 10000 }, async function (this: AuthWorld) {
+  this.authFixtureClosed = true;
   await this.harness?.close();
 });
 

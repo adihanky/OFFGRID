@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
+import { MongoClient } from 'mongodb';
 import { AppModule } from '../../apps/api/src/app.module.js';
 import { ENVIRONMENT } from '../../apps/api/src/config/environment.module.js';
 import { configureHttp } from '../../apps/api/src/configure-http.js';
@@ -17,6 +18,17 @@ export async function createAuthHarness(googleEnabled = true) {
       : { GOOGLE_CLIENT_ID: '', GOOGLE_CLIENT_SECRET: '', GOOGLE_REDIRECT_URI: '' }),
   });
   const google = await createGoogleFixture();
+  async function cleanup() {
+    if (!/^p2p_auth_test_[a-f0-9]{32}$/.test(name))
+      throw new Error('Refusing to drop a non-test database.');
+    const client = new MongoClient(environment.MONGODB_URI, { serverSelectionTimeoutMS: 3000 });
+    try {
+      await client.connect();
+      await client.db(name).dropDatabase();
+    } finally {
+      await client.close();
+    }
+  }
   const module = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(ENVIRONMENT)
     .useValue(environment)
@@ -30,7 +42,11 @@ export async function createAuthHarness(googleEnabled = true) {
   try {
     await app.listen(0, '127.0.0.1');
   } catch (error) {
-    await app.close();
+    try {
+      await app.close();
+    } finally {
+      await cleanup();
+    }
     throw new Error('Auth scenarios require local MongoDB rs0. Run scripts/db.ps1 start first.', {
       cause: error,
     });
@@ -96,11 +112,9 @@ export async function createAuthHarness(googleEnabled = true) {
     },
     async close() {
       try {
-        if (!/^p2p_auth_test_[a-f0-9]{32}$/.test(name))
-          throw new Error('Refusing to drop a non-test database.');
-        await database.db.dropDatabase();
-      } finally {
         await app.close();
+      } finally {
+        await cleanup();
       }
     },
   };

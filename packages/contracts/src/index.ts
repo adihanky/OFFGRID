@@ -37,3 +37,53 @@ export interface SignInRequest {
 export interface SignUpRequest extends SignInRequest {
   publicHandle: string;
 }
+
+export interface PublicPeer {
+  id: string;
+  publicHandle: string;
+  displayName: string;
+}
+export interface WalletAccount {
+  assetId: string;
+  code: string;
+  displayName: string;
+  precision: number;
+  balance: string;
+  status: 'active' | 'disabled';
+}
+export interface WalletResponse {
+  accounts: WalletAccount[];
+}
+export interface PeerResponse {
+  peer: PublicPeer;
+}
+export interface CreateTransferRequest {
+  recipientId: string;
+  assetId: string;
+  quantity: string;
+}
+export type TransferRejectionCode =
+  | 'INSUFFICIENT_BALANCE'
+  | 'RECIPIENT_UNAVAILABLE'
+  | 'SENDER_UNAVAILABLE'
+  | 'ACCOUNT_UNAVAILABLE'
+  | 'ASSET_UNAVAILABLE'
+  | 'BALANCE_LIMIT_EXCEEDED'
+  | 'WALLET_UNAVAILABLE'
+  | 'LOT_LIMIT_EXCEEDED'
+  | 'QUANTITY_LIMIT_EXCEEDED';
+export interface TransferView {
+  id: string;
+  sender: PublicPeer;
+  recipient: PublicPeer;
+  asset: { id: string; code: string; displayName: string; precision: number };
+  quantity: string;
+  status: 'PENDING' | 'COMMITTED' | 'REJECTED';
+  rejectionCode: TransferRejectionCode | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface TransferResponse {
+  transfer: TransferView;
+}
+export * from './wallet-v2.js';

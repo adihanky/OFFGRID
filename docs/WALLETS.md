@@ -1,0 +1,46 @@
+# Application wallets
+
+The browser includes v2 wallet/send, explicit wallet setup, participant custody views, [administration](ADMINISTRATION.md) and [verified EVM address linking](NETWORKS.md) on configured local/testnet networks. Explicit offline legacy backfill preserves existing users. See the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md) for the complete target. Global policy editors, real blockchain balances/settlement and mainnet activation remain pending.
+
+## Ownership and registration
+
+[MongoAuthStore](../apps/api/src/modules/auth/mongo-auth.store.ts) inserts a registered user and one application wallet in the same snapshot/majority MongoDB transaction. A failure aborts both records. Email and Google registration share this store. The unique wallet `userId` index enforces one durable wallet per user. Sign-in does not issue balances or backfill legacy users.
+
+The [schema initializer](../apps/api/src/modules/wallets/wallet-schema.ts) creates additive wallet, binding and role collections with strict validators. Binding uniqueness covers revoked records too. External bindings require the [ownership-proof lifecycle](NETWORKS.md). Privileged role setup/changes use the authenticated, CSRF-protected [administration API](ADMINISTRATION.md). No first-user administrator assignment exists.
+
+Auth uses a small persistence factory, not the Wallets Nest module. Wallets depends on the existing Auth and Accounts modules. Accounts remains the sole simulation balance store.
+
+## Current v2 routes
+
+Every signed-in user has visible navigation to **Set up wallet**, **Assets** and **Administration**. `POST /api/v2/wallet/settings` saves `{displayName,preferredAssetId,revision}` for the session owner's active wallet. Preferences have their own optimistic configuration revision and persist without issuing value, creating another wallet or changing public peer identity. A preferred asset must be active; an empty choice is null. The browser uses it as the initial send selection. Existing wallet records remain valid with default preferences until explicitly configured.
+
+`GET /api/v2/assets` supplies the displayable catalogue. Asset editing remains role protected; ordinary users see the required grant and where to request/access administration rather than hidden controls. Linking routes are `POST /api/v2/wallet/binding-challenges`, `POST /api/v2/wallet/bindings` and owner-only `POST /api/v2/wallet/bindings/:id/revoke`; details are in [Networks](NETWORKS.md).
+
+All routes require an authenticated active session and return `Cache-Control: no-store`. Mutation routes additionally require session-bound CSRF and the configured Origin. Unknown fields and query parameters are rejected.
+
+| Endpoint                        | Behavior                                                                                                                                                                                                                                      |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/v2/wallet`            | Own durable wallet and existing simulated holdings; no balance writes. A legacy user without a wallet receives 503 `WALLET_MIGRATION_REQUIRED`.                                                                                               |
+| `POST /api/v2/peer-resolutions` | Exact handle or application wallet ID lookup for an enabled simulated asset; sender wallet must belong to the caller. Both users and wallets must be active and distinct. Raw chain addresses are unavailable until the chain adapter exists. |
+| `POST /api/v2/transfers`        | Reviewed simulated send with `Idempotency-Key`; pins server-resolved wallet IDs and requires a custody-enabled asset. Returns 201/200 committed, 202 pending, or 422 durable business rejection.                                              |
+| `GET /api/v2/transfers/:id`     | Authorized outcome and original payload version; sender sees pending/rejected outcomes, recipient sees committed outcomes, strangers receive 404.                                                                                             |
+
+Resolutions expire after 120 seconds, are caller scoped and retain wallet and asset revisions. Application code checks expiry independently of TTL cleanup. Wallet suspension and asset pause/revision changes invalidate unsubmitted review. Recipient login status has no bearing on lookup. Responses include only public identity, wallet ID, mode and revision snapshots. Current limits are 120 resolutions, 60 new transfers and 240 wallet/outcome reads per caller per minute. Persisted configurable policies remain a later package.
+
+V2 accepts `{recipientResolutionId,senderWalletId,assetId,quantity}` and uses the existing atomic executor with wallet fences and custody writes. Durable requests retain reviewed IDs and canonical quantities. Terminal replays survive review expiry; changed content and cross-version key reuse return 409. Existing v1 hashes and IDs remain unchanged. Recovery processes both versions independently of session expiry. The browser creates v2 intents and can recover a previously stored v1 intent using its original route/key. It clears identity-scoped storage on signout/account switch, validates returned wallet IDs, and returns expired/unavailable reviews to an editable form. A resolution alone never transfers value.
+
+## Read-only migration assessment
+
+Run `.\scripts\npm.ps1 run wallet:migration:assess` after starting the configured replica set. It builds the API, then opens a standalone MongoDB client without starting Nest or workers. It never creates collections/indexes, provisions wallets, grants roles, issues units or repairs history. Use read-only database credentials when available.
+
+The [assessment](../apps/api/src/modules/wallets/migration-assessment.ts) reads legacy v1 financial data in a snapshot transaction, checks ownership, balanced journal references, exact supply, chain hashes and provenance replay feasibility, and inventories collection validators/indexes. V2 transfers and external bindings require additional migration/custody audit and are conservatively blocked by this legacy preflight. Catalog metadata is advisory and read after the data snapshot. Reports contain record IDs and integrity diagnostics, never credentials or private profile fields. The CLI exits 2 for a blocked report, 1 for an unsuccessful assessment, and 0 otherwise. It fails rather than truncating collections above 50,000 records.
+
+`READY_FOR_BACKFILL` permits planning only; `POLICY_REQUIRED` means replay is feasible under the declared issuance-first/chain-order migration policy, not that historical interleaving or serial coin ownership has been proved. Pending requests, corrupt evidence, unsupported external bindings and invalid schemas block migration. Every assessment has `cutoverEnabled: false`. No implicit startup migration occurs.
+
+## Explicit local/demo cutover
+
+Stop the API and recovery worker, then run `.\scripts\npm.ps1 run wallet:migration:apply`. The guarded [CLI](../scripts/migrate-wallets.mjs) refuses a listening API and production/remote/unapproved targets. It writes an ignored EJSON backup, restores that file into a disposable database, rehearses the complete cutover and custody verification, then applies it to the configured local database. Backups contain private application records and must remain local. Retain the backup for maintenance recovery; after new custody writes use forward repair instead of restoring over new payments.
+
+The [migration](../apps/api/src/modules/wallets/wallet-migration.ts) uses one bounded snapshot/majority transaction: preflight, one wallet per user (suspended for disabled users), account linkage, additive asset metadata, issuance-first/recorded-chain-order custody replay and exact unspent-lot balance checks. Existing IDs, amounts, journal, transfer payloads and old hashes are preserved. Replayed events carry `MIGRATED_POLICY`, which is committed in their canonical hashes and shown as reconstructed provenance. A unique completion marker makes reruns no-ops, including after v2 payments. Any reconstruction error aborts the transaction. The CLI checks unchanged financial evidence and custody integrity after commit; failures keep maintenance active for investigation. Restart the current API after success. This bounded tool is not a production migration runbook.
+
+Executable coverage is in [wallet ownership scenarios](../tests/features/wallet-ownership.feature), [assessment scenarios](../tests/features/wallet-overhaul-data.feature), and the matching unit tests/step definitions. See [onboarding](../onboarding.md) for the current verification result.

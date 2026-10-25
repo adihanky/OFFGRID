@@ -2,11 +2,15 @@
 
 A TypeScript workspace for a server-coordinated simulation of peer-to-peer asset transfers, with MongoDB persistence, a transfer audit chain, and direct chat.
 
-Current phase: authentication. Email/password sign-up/sign-in, Google OAuth, revocable cookie sessions, and client authentication screens are implemented alongside the foundation. Wallet operations, transfers, history, chain execution, and chat remain reserved modules.
+Current phase: Wallet and Transfer implemented. The application includes email/password and Google authentication, revocable cookie sessions, own-wallet balances, exact peer lookup, reviewed transfers, atomic settlement, pending recovery and same-intent client retries. Automated coverage and remaining browser/failure-injection limits are recorded in the [QA map](docs/WALLET_AND_TRANSFER_QA.md); current verification and next action are in [onboarding.md](onboarding.md). Full transfer history, chain explorer screens and chat remain later modules.
 
 See [authentication setup and API documentation](docs/AUTHENTICATION.md) to configure Google and review session behavior.
 
 The [approved high-level design](docs/HIGH_LEVEL_DESIGN.md) defines the implementation scope and sequence.
+
+The [wallet/asset overhaul HLD](docs/WALLET_ASSET_OVERHAUL_HLD.md) and [LLD](docs/WALLET_ASSET_OVERHAUL_LLD.md) define the full target. The sign-in screen offers administrator-account setup; signed-in navigation includes wallet setup, assets, administration and admin-account access guidance. Users can name their wallet, select a default asset and [prove ownership of an external EVM address](docs/NETWORKS.md). Administrators configure demo assets/issuance, verified local/testnet networks, access/audit and repeatable demo data. V2 sends and participant custody are integrated with explicit local migration. See [wallet architecture](docs/WALLETS.md), [custody](docs/CUSTODY.md) and [administration setup](docs/ADMINISTRATION.md). Existing data is never silently migrated. Real EVM balances/settlement, mainnet activation and global policy editors remain pending.
+
+The [Wallet and Transfer HLD](docs/WALLET_AND_TRANSFER.md) defines boundaries, APIs, exact quantities, atomic settlement, idempotency and recovery. The [implementation design](docs/WALLET_AND_TRANSFER_LLD.md) records the concrete contracts and assignments; the [implementation handoff](docs/WALLET_AND_TRANSFER_IMPLEMENTATION.md) retains the work packages and required test matrix.
 
 ## Project layout
 
@@ -18,12 +22,12 @@ apps/
     health/          Liveness and readiness endpoints
     modules/
       auth/          Email/Google sign-in, sign-up, cookie sessions, CSRF and throttling
-      accounts/      Asset balances and peer lookup (reserved)
-      transfers/     Validation and atomic execution (reserved)
-      ledger/        Double-entry records (reserved)
-      chain/         Hash-linked transfer history (reserved)
+      accounts/      Asset catalogue, balances, peer lookup and demo issuance
+      transfers/     Validation, durable requests and atomic execution
+      ledger/        Double-entry records and reconciliation
+      chain/         Hash-linked transfer history and integrity checks
       chat/          Conversations and messages (reserved)
-    workers/         Outbox and recovery work (reserved)
+    workers/         Pending transfer recovery and durable outbox storage
   web/               React + Vite development client
 packages/
   contracts/         Shared API response types
@@ -118,26 +122,38 @@ Development MongoDB is unauthenticated and bound/exposed only to loopback. This 
 
 ## Development commands
 
+Before implementation, follow [AGENTS.md](AGENTS.md) and [orchestrator.md](orchestrator.md). Work directly by default; at most one subagent may be active. Keep documentation proportional: update module docs when contracts, behavior, security, configuration or architecture materially change, and maintain [onboarding.md](onboarding.md) as the concise current handover only.
+
 Use `npm` after activating the local runtime, or replace it with `.\scripts\npm.ps1` on Windows.
 
-| Command                   | Purpose                                                                      |
-| ------------------------- | ---------------------------------------------------------------------------- |
-| `npm run dev`             | Build shared contracts and start API/client watchers                         |
-| `npm run build`           | Compile contracts, backend, and frontend                                     |
-| `npm run typecheck`       | Check TypeScript across all workspaces                                       |
-| `npm run lint`            | ESLint with zero warnings                                                    |
-| `npm run format`          | Format source/configuration/docs with Prettier                               |
-| `npm test`                | Unit tests and Cucumber functional scenarios with JUnit XML reports          |
-| `npm run test:unit`       | TypeScript unit tests using the Node.js test runner                          |
-| `npm run test:functional` | Executable Cucumber `.feature` scenarios                                     |
-| `npm run test:typecheck`  | Check TypeScript test sources                                                |
-| `npm run check`           | Lint, application/test type checks, both test suites, builds, and formatting |
-| `npm run db:verify`       | Verify local MongoDB commit/rollback support                                 |
-| `npm run smoke`           | Verify running API, frontend, and proxy                                      |
+| Command                           | Purpose                                                                           |
+| --------------------------------- | --------------------------------------------------------------------------------- |
+| `npm run dev`                     | Build shared contracts and start API/client watchers                              |
+| `npm run build`                   | Compile contracts, backend, and frontend                                          |
+| `npm run typecheck`               | Check TypeScript across all workspaces                                            |
+| `npm run lint`                    | ESLint with zero warnings                                                         |
+| `npm run format`                  | Format source/configuration/docs with Prettier                                    |
+| `npm test`                        | Unit tests and Cucumber functional scenarios with JUnit XML reports               |
+| `npm run test:unit`               | TypeScript unit tests using the Node.js test runner                               |
+| `npm run test:functional`         | Executable Cucumber `.feature` scenarios                                          |
+| `npm run test:typecheck`          | Check TypeScript test sources                                                     |
+| `npm run check`                   | Lint, application/test type checks, both test suites, builds, and formatting      |
+| `npm run db:verify`               | Verify local MongoDB commit/rollback support                                      |
+| `npm run seed:demo`               | Explicitly create synthetic demo identities and balanced, rerunnable credits      |
+| `npm run wallet:migration:assess` | Read-only legacy wallet/ledger/chain/provenance preflight; no backfill or repair  |
+| `npm run wallet:migration:apply`  | Explicit offline local/demo backup, restore rehearsal and wallet/custody backfill |
+| `npm run seed:wallet-demo`        | Role-authorized v2 demo profile through the same service as the UI                |
+| `npm run smoke`                   | Verify running API, frontend, and proxy                                           |
 
 Shared contracts are built before consumers. If editing contracts during development, rebuild them and restart `dev`. `npm run start -w @p2p/api` runs the compiled backend; frontend deployment will need an HTTPS reverse proxy for `/api` and future socket traffic. No hosting deployment has been configured.
 
 Every feature requires unit tests and Cucumber scenarios covering happy flows, negative flows, and edge cases. Tests produce JUnit XML reports under `.local/test-results/`, plus a Cucumber HTML report. Unit tests and health scenarios use isolated fixtures. Auth scenarios exercise the full app and temporary databases on the local MongoDB replica set, so start it before `npm test` or `npm run check`. See [the testing guide](tests/README.md) for commands, coverage, and how to add tests.
+
+## Local demo credits
+
+Wallets start with zero balances. The explicit fixture command creates `demo_alice@example.invalid` and `demo_bob@example.invalid`, with handles `demo_alice` and `demo_bob`, and one balanced issuance of **1000.00 DEMO** to each. Set a local `DEMO_PASSWORD` of 12–128 characters in your shell, then run `.\scripts\npm.ps1 run seed:demo` or `npm run seed:demo` after activating the project runtime. Sign in with either synthetic email and that password, then look up the other handle to transfer credits.
+
+The command builds the API first and refuses production mode, remote or credentialed MongoDB URIs, nonstandard ports, and databases outside its allowlist. Development targets are `p2p_offgrid` and `p2p_offgrid_demo`; automated fixtures use uniquely named `p2p_transfer_test_<32 hex>` databases. Existing synthetic identities must match the supplied password; the command never resets passwords or spent balances. Repeating an issuance key with matching content has no financial effect. No assets or credits are created automatically during startup, registration or sign-in. Keep `DEMO_PASSWORD` out of source control and use it only for these synthetic identities.
 
 ## Prerequisite references
 

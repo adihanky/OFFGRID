@@ -21,6 +21,8 @@ const environment: Environment = {
   GOOGLE_CLIENT_ID: '',
   GOOGLE_CLIENT_SECRET: '',
   GOOGLE_REDIRECT_URI: '',
+  ADMIN_SETUP_TOKEN: '',
+  EVM_RPC_ALLOWED_HOSTS: '',
 };
 
 export const databaseFailureMarker = 'synthetic-private-driver-error';

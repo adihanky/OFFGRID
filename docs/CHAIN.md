@@ -1,0 +1,11 @@
+# Transfer chain architecture
+
+`apps/api/src/modules/chain/chain.service.ts` implements a per-asset hash-linked audit history. ChainModule exports ChainService to Transfers; Accounts creates genesis heads and coordinates asset eligibility. The chain is an audit structure, not decentralized consensus. There is no public chain endpoint in this slice.
+
+`chainHeads` has unique assetId, nonnegative BSON Long latestSequence, latestHash and transfersEnabled. Genesis is sequence zero and 64 zero hex characters. `chainEntries` requires assetId, positive Long sequence, transferId, previousHash, entryHash, canonicalVersion 1, canonicalPayload and createdAt; unique asset/sequence and transferId indexes prevent duplicate appends. No TTL or mutation API exists. Initializers apply strict validators and fail incompatible data.
+
+`append(transfer,senderAccountId,recipientAccountId,committedAt,session)` rechecks active catalogue and enabled head, rejects sequence overflow, hashes the UTF-8 canonical JSON array defined in the [LLD](WALLET_AND_TRANSFER_LLD.md), conditionally advances the exact prior head and inserts the entry in the caller's transaction. It runs sequentially with balance, ledger, status and outbox mutations. Head conflicts serialize same-asset transfers through MongoDB transaction retries. Asset suspension updates the same head, preventing a snapshot-only eligibility bypass.
+
+`verify(assetId?)` runs a consistent snapshot, recomputes hashes, checks consecutive sequence/predecessors/head, checks canonical transfer fields and matching ledger accounts/quantity, and detects committed transfers missing chain entries and entries missing heads. It returns `{ok,issues}` without repair writes. Privileged actors can rewrite and recompute the database; externally retained trusted checkpoints are required for stronger evidence and remain planned.
+
+Tests: `tests/unit/chain.test.mts`, wallet/transfer/recovery `.feature` scenarios and executable transfer steps. QA IDs W10/T01/T07/R01. Run both suites through `scripts/npm.ps1 run check` with disposable local replica-set fixtures. Integrated test evidence is recorded in [QA map](WALLET_AND_TRANSFER_QA.md). One global head per asset and whole-snapshot verification are deliberate MVP throughput limitations; no load or production availability target has been measured.

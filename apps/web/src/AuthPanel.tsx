@@ -2,13 +2,19 @@ import { useEffect, useState, type FormEvent } from 'react';
 import type { AuthUser } from '@p2p/contracts';
 import { authApi, AuthApiError } from './auth';
 
-export function AuthPanel() {
-  const [user, setUser] = useState<AuthUser | null>(null);
+export function AuthPanel({
+  user,
+  onUserChange,
+}: {
+  user: AuthUser | null;
+  onUserChange: (user: AuthUser | null) => void;
+}) {
   const [loading, setLoading] = useState(true);
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [mode, setMode] = useState<'signin' | 'signup'>('signin');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [administratorSetup, setAdministratorSetup] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -32,9 +38,11 @@ export function AuthPanel() {
     const identity = authApi
       .me(controller.signal)
       .then((result) => {
-        if (!controller.signal.aborted) setUser(result.user);
+        if (!controller.signal.aborted) onUserChange(result.user);
       })
       .catch((failure: unknown) => {
+        if (!controller.signal.aborted && failure instanceof AuthApiError && failure.status === 401)
+          onUserChange(null);
         if (
           !controller.signal.aborted &&
           !(failure instanceof AuthApiError && failure.status === 401)
@@ -56,7 +64,7 @@ export function AuthPanel() {
       controller.abort();
       window.clearTimeout(timeout);
     };
-  }, []);
+  }, [onUserChange]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,7 +79,7 @@ export function AuthPanel() {
         mode === 'signup'
           ? await authApi.signUp({ email, password, publicHandle })
           : await authApi.signIn({ email, password });
-      setUser(result.user);
+      onUserChange(result.user);
     } catch (failure) {
       setError(failure instanceof Error ? failure.message : 'Sign-in failed. Please try again.');
     } finally {
@@ -83,9 +91,11 @@ export function AuthPanel() {
     setError('');
     try {
       await authApi.signOut();
-      setUser(null);
+      setMode('signin');
+      setAdministratorSetup(false);
+      onUserChange(null);
     } catch (failure) {
-      if (failure instanceof AuthApiError && failure.status === 401) setUser(null);
+      if (failure instanceof AuthApiError && failure.status === 401) onUserChange(null);
       else
         setError(failure instanceof Error ? failure.message : 'Sign-out failed. Please try again.');
     } finally {
@@ -94,7 +104,11 @@ export function AuthPanel() {
   }
 
   return (
-    <section className="auth-panel" aria-labelledby="auth-title" aria-busy={busy || loading}>
+    <section
+      className={`auth-panel${user ? ' account-summary' : ''}`}
+      aria-labelledby="auth-title"
+      aria-busy={busy || loading}
+    >
       {loading ? (
         <>
           <h2 id="auth-title">Your account</h2>
@@ -102,16 +116,13 @@ export function AuthPanel() {
         </>
       ) : user ? (
         <>
-          <p className="eyebrow">YOU'RE SIGNED IN</p>
-          <h2 id="auth-title">Welcome, {user.displayName}.</h2>
-          <p className="auth-detail">
-            {user.email}
-            <br />
-            <strong>@{user.publicHandle}</strong>
-          </p>
-          <p className="auth-detail">
-            Your account is ready. Asset transfers and peer chat are coming next.
-          </p>
+          <div>
+            <p className="eyebrow">YOUR WORKSPACE</p>
+            <h2 id="auth-title">Welcome, {user.displayName}.</h2>
+            <p className="auth-detail">
+              {user.email} · <strong>@{user.publicHandle}</strong>
+            </p>
+          </div>
           <button className="primary-button" disabled={busy} onClick={() => void signOut()}>
             {busy ? 'Signing out...' : 'Sign out'}
           </button>
@@ -192,6 +203,42 @@ export function AuthPanel() {
               {mode === 'signin' ? 'Create an account' : 'Sign in'}
             </button>
           </p>
+          <details className="administrator-entry" open={administratorSetup}>
+            <summary
+              onClick={(event) => {
+                event.preventDefault();
+                setAdministratorSetup((open) => !open);
+              }}
+            >
+              Set up administrator account
+            </summary>
+            <p>
+              Create an account or sign in, then open Admin account. The first administrator needs
+              the installation setup token. Additional administrators need a role grant from an
+              existing access administrator.
+            </p>
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => {
+                setMode('signup');
+                setError('');
+              }}
+            >
+              Create administrator account
+            </button>{' '}
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => {
+                setMode('signin');
+                setError('');
+              }}
+            >
+              Use existing account
+            </button>
+            <p>Creating an account alone does not grant administrator access.</p>
+          </details>
         </>
       )}
       {error && (
