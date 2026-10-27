@@ -10,6 +10,8 @@ import { DatabaseService } from '../../apps/api/src/database/database.service.js
 import { AccountsService } from '../../apps/api/src/modules/accounts/accounts.service.js';
 import { TransfersService } from '../../apps/api/src/modules/transfers/transfers.service.js';
 import { TransferRecoveryService } from '../../apps/api/src/workers/transfer-recovery.service.js';
+import { OperationsWorker } from '../../apps/api/src/modules/operations/operations-worker.js';
+import { RecoveryDelivery } from '../../apps/api/src/modules/auth/recovery-delivery.js';
 import { walletDocument } from '../../apps/api/src/modules/wallets/wallet-document.js';
 import {
   csrfForSession,
@@ -25,7 +27,10 @@ export interface TransferCaller {
   csrf: string;
 }
 
-export async function createTransferHarness(overrides: Record<string, string> = {}) {
+export async function createTransferHarness(
+  overrides: Record<string, string> = {},
+  delivery?: RecoveryDelivery,
+) {
   const name = `p2p_transfer_test_${randomUUID().replaceAll('-', '')}`;
   const environment = testEnvironment({
     MONGODB_DB: name,
@@ -45,15 +50,17 @@ export async function createTransferHarness(overrides: Record<string, string> = 
       await client.close();
     }
   }
-  const module = await Test.createTestingModule({ imports: [AppModule] })
+  const builder = Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(ENVIRONMENT)
-    .useValue(environment)
-    .compile();
+    .useValue(environment);
+  if (delivery) builder.overrideProvider(RecoveryDelivery).useValue(delivery);
+  const module = await builder.compile();
   let app = module.createNestApplication({ logger: false });
   configureHttp(app, environment);
   try {
     await app.listen(0, '127.0.0.1');
     await app.get(TransferRecoveryService).stop();
+    await app.get(OperationsWorker).stop();
   } catch (error) {
     try {
       await app.close();
@@ -83,7 +90,7 @@ export async function createTransferHarness(overrides: Record<string, string> = 
     } = {},
   ) {
     if (
-      !/^\/api\/(auth\/(csrf|signup|signin|signout|me)|accounts|peers|transfers(?:\/[a-f0-9]{24})?|v2\/(wallet(?:\/settings|\/binding-challenges|\/bindings(?:\/[a-f0-9]{24}\/revoke)?)?|assets|networks|peer-resolutions|custody(?:\/[a-f0-9]{24})?|admin\/(?:status|setup|(?:assets|networks)(?:\/[a-f0-9]{24})?|issuances|roles|audit|seed\/(?:preview|run|status))|transfers(?:\/[a-f0-9]{24})?))(?:\?|$)/.test(
+      !/^\/api\/(auth\/(csrf|signup|signin|signout|me|recovery-status|password-reset-requests|password-resets|email-verification-requests|email-verifications|sessions(?:\/revoke-others|\/[a-f0-9]{24}\/revoke)?)|accounts|peers|transfers(?:\/[a-f0-9]{24})?|v2\/(workspace|requests|notifications(?:\/[a-f0-9]{24}\/read)?|wallet(?:\/settings|\/binding-challenges|\/bindings(?:\/[a-f0-9]{24}\/revoke)?)?|assets|networks|peer-resolutions|custody(?:\/[a-f0-9]{24})?|admin\/(?:status|setup|(?:assets|networks)(?:\/[a-f0-9]{24})?|issuances|roles|audit|requests(?:\/[a-f0-9]{24}\/decision)?|operations|verification-jobs|jobs\/[a-f0-9]{24}|settings(?:\/(?:validate|revisions))?|seed\/(?:preview|run|status))|transfers(?:\/[a-f0-9]{24}(?:\/(?:receipt|chain))?)?))(?:\?|$)/.test(
         path,
       )
     )
@@ -91,7 +98,7 @@ export async function createTransferHarness(overrides: Record<string, string> = 
     const headers: Record<string, string> = {
       Cookie: [...caller.jar].map(([key, value]) => `${key}=${value}`).join('; '),
     };
-    if (method === 'POST') {
+    if (method === 'POST' || method === 'PATCH') {
       headers.Origin = options.origin ?? environment.WEB_ORIGIN;
       headers['Content-Type'] = 'application/json';
       if (options.csrf !== false) headers['X-CSRF-Token'] = options.csrfValue ?? caller.csrf;
@@ -176,14 +183,16 @@ export async function createTransferHarness(overrides: Record<string, string> = 
     register,
     async restart() {
       await app.close();
-      const restarted = await Test.createTestingModule({ imports: [AppModule] })
+      const restartBuilder = Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(ENVIRONMENT)
-        .useValue(environment)
-        .compile();
+        .useValue(environment);
+      if (delivery) restartBuilder.overrideProvider(RecoveryDelivery).useValue(delivery);
+      const restarted = await restartBuilder.compile();
       app = restarted.createNestApplication({ logger: false });
       configureHttp(app, environment);
       await app.listen(0, '127.0.0.1');
       await app.get(TransferRecoveryService).stop();
+      await app.get(OperationsWorker).stop();
       origin = await app.getUrl();
       database = app.get(DatabaseService);
       accounts = app.get(AccountsService);

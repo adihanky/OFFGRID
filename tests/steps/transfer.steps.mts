@@ -18,6 +18,7 @@ import {
 
 interface TransferWorld extends World {
   harness: TransferHarness;
+  transferCleanupStarted?: boolean;
   callers: Record<string, TransferCaller>;
   assetId: string;
   response: Response;
@@ -106,12 +107,18 @@ async function makeDue(world: TransferWorld) {
   );
 }
 
-Before({ tags: '@wallet or @transfer', timeout: 60000 }, async function (this: TransferWorld) {
-  this.harness = await createTransferHarness();
+Before({ tags: '@wallet or @transfer', timeout: 120000 }, async function (this: TransferWorld) {
+  const harness = await createTransferHarness();
+  if (this.transferCleanupStarted) {
+    await harness.close();
+    throw new Error('Transfer fixture completed after scenario cleanup.');
+  }
+  this.harness = harness;
   this.callers = {};
   this.results = [];
 });
 After({ tags: '@wallet or @transfer', timeout: 15000 }, async function (this: TransferWorld) {
+  this.transferCleanupStarted = true;
   this.restoreDriver?.();
   await this.harness?.close();
 });

@@ -15,6 +15,20 @@ From the repository root on Windows:
 .\scripts\npm.ps1 run check
 ```
 
+For a full regression while the demo is running, use the separate fixture replica set:
+
+```powershell
+.\scripts\test-db.ps1 start
+$env:P2P_TEST_MONGODB_PORT = '27018'
+.\scripts\npm.ps1 run check
+.\scripts\test-db.ps1 stop
+Remove-Item Env:\P2P_TEST_MONGODB_PORT
+```
+
+The isolated process binds only `127.0.0.1:27018`, stores data under `.local/mongodb-tests/`, caps the WiredTiger cache at 0.25 GB and disables FTDC diagnostic capture. A long serial fixture run exhausted memory in the demo server's FTDC thread despite its cache cap; isolation keeps repeated schema/index creation off that server. See [MongoDB's FTDC option](https://www.mongodb.com/docs/v8.0/administration/full-time-diagnostic-data-capture/). The helper checks process/data-directory ownership before managing port 27018 and verifies replica-set identity and disabled diagnostics. It never copies, seeds or drops the demo database; stopping preserves its own data directory.
+
+`P2P_TEST_MONGODB_PORT` accepts only `27017` (the compatibility default) or `27018`; fixture URIs always use loopback and `rs0`. On port 27018, financial demo guards additionally require `NODE_ENV=test` and a generated `p2p_transfer_test_<32 hex>` name. Development mode and normal demo database names remain refused on that port. Unit and executable target-safety scenarios cover these restrictions. Health command mocks do not open a database connection.
+
 `test` runs both suites, even if the first suite fails. `check` runs lint, application type checks, test type checks, both test suites, builds, and formatting validation. Use the project-local Node.js 24 runtime through the wrapper; no Java runtime is required.
 
 Unit tests require no running services and run one file at a time to bound memory use and avoid competing Nest/TypeScript startup work on local machines. Keep functional tests sequential (the default) on memory-constrained hosts, and avoid concurrent builds; multiple full-application workers can exhaust memory and stop the local database. Functional tests start a NestJS HTTP server on an operating-system-assigned loopback port for each scenario and close it afterward. Health scenarios use controlled MongoDB command responses. Auth scenarios require the local `rs0` replica set and use the full application with real validators/indexes and a generated `p2p_auth_test_<random-id>` database per scenario; only Google's network and verification keys are mocked. Databases are dropped after each auth scenario after validating the generated name. No external accounts or existing application servers are required. This does not replace the real MongoDB transaction check (`scripts/db.ps1 verify`) or the running application smoke check.
@@ -25,20 +39,25 @@ The `@wallet_browser` scenarios additionally require installed Chrome. They use 
 
 ## Files and reports
 
-| Path                                  | Purpose                                             |
-| ------------------------------------- | --------------------------------------------------- |
-| `tests/unit/**/*.test.mts`            | TypeScript unit tests using the Node.js test runner |
-| `tests/features/**/*.feature`         | Gherkin functional scenarios                        |
-| `tests/steps/**/*.mts`                | Executable Cucumber steps and scenario hooks        |
-| `tests/support/`                      | Controlled fixtures shared by the test suites       |
-| `tests/tsconfig.json`                 | Test type checking and tsx decorator configuration  |
-| `cucumber.mjs`                        | Cucumber discovery, strict mode, and reporting      |
-| `scripts/test.mjs`                    | Cross-platform suite runner and report validation   |
-| `.local/test-results/unit.xml`        | Unit JUnit XML report                               |
-| `.local/test-results/functional.xml`  | Functional JUnit XML report                         |
-| `.local/test-results/functional.html` | Readable Cucumber HTML report                       |
+| Path                                             | Purpose                                             |
+| ------------------------------------------------ | --------------------------------------------------- |
+| `tests/unit/**/*.test.mts`                       | TypeScript unit tests using the Node.js test runner |
+| `tests/features/**/*.feature`                    | Gherkin functional scenarios                        |
+| `tests/steps/**/*.mts`                           | Executable Cucumber steps and scenario hooks        |
+| `tests/support/`                                 | Controlled fixtures shared by the test suites       |
+| `tests/tsconfig.json`                            | Test type checking and tsx decorator configuration  |
+| `cucumber.mjs`                                   | Cucumber discovery, strict mode, and reporting      |
+| `scripts/test.mjs`                               | Cross-platform suite runner and report validation   |
+| `.local/test-results/unit.xml`                   | Unit JUnit XML report                               |
+| `.local/test-results/functional.xml`             | Functional JUnit XML report                         |
+| `.local/test-results/functional.html`            | Readable Cucumber HTML report                       |
+| `.local/test-results/functional-messages.ndjson` | Incremental Cucumber progress and outcomes          |
 
 Reports are generated locally and ignored by Git. Each suite overwrites its previous reports. The runner rejects empty JUnit reports, skipped tests, and reported failures or errors. Undefined or pending Cucumber steps also fail the suite. Retries are disabled.
+
+Core enhancement coverage adds `transfer-history`, `consumer-workspace`, `workspace-readiness`, `settings`, `consumer-requests`, `account-recovery`, `notifications-operations` and real browser administration/discovery scenarios. They cover participant privacy and cursor boundaries, retained drafts, blocked-wallet next actions, effective policy publication/conflicts, atomic request decisions, controlled delivery, token/session revocation, notification deduplication and stale claims. `wallet-delivery.feature` also restores a controlled EJSON legacy backup into a separate guarded rehearsal target before migration, preserving the original fixture. See [implementation boundaries](../docs/DEMO_ENHANCEMENTS.md); exact-service evidence is separate from fixture success.
+
+Full-application transfer, ownership, assessment, delivery and real-browser fixtures allow up to 120 seconds for cold database schema/index initialization. They close a fixture that completes after scenario cleanup starts. Behavioral assertion limits remain separate; an initialization timeout is a failure, never a retry or skipped success.
 
 ## Adding a feature
 

@@ -4,6 +4,7 @@ import { DatabaseService } from '../../database/database.service.js';
 import { collectionSchema, oid, date, long } from '../accounts/schema.js';
 import { MAX_UNITS, toLong, units } from '../accounts/quantity.js';
 import type { AccountRecord, IssuanceRecord } from '../accounts/accounts.models.js';
+import { verificationRows } from './verification-budget.js';
 
 export interface LedgerEntry {
   _id: ObjectId;
@@ -74,18 +75,20 @@ export class LedgerService implements OnModuleInit {
         { session },
       );
   }
-  async reconcile(): Promise<{ ok: boolean; issues: string[] }> {
+  async reconcile(maximum?: number): Promise<{ ok: boolean; issues: string[] }> {
     const issues: string[] = [];
     const session = this.database.client.startSession();
     try {
       await session.withTransaction(
         async () => {
           issues.length = 0;
-          const accounts = await this.database.db
-            .collection<AccountRecord>('accounts', { promoteLongs: false })
-            .find({}, { session })
-            .toArray();
-          const entries = await this.entries.find({}, { session }).toArray();
+          const accounts = await verificationRows(
+            this.database.db
+              .collection<AccountRecord>('accounts', { promoteLongs: false })
+              .find({}, { session }),
+            maximum,
+          );
+          const entries = await verificationRows(this.entries.find({}, { session }), maximum);
           const sums = new Map<string, bigint>();
           const pairs = new Map<string, LedgerEntry[]>();
           for (const entry of entries) {
@@ -151,10 +154,10 @@ export class LedgerService implements OnModuleInit {
             ['demoIssuances', 'demoIssuance', {}],
             ['transfers', 'transfer', { status: 'COMMITTED' }],
           ] as const) {
-            for (const ref of await this.database.db
-              .collection(collection)
-              .find(filter, { session })
-              .toArray())
+            for (const ref of await verificationRows(
+              this.database.db.collection(collection).find(filter, { session }),
+              maximum,
+            ))
               if (!pairs.has(`${kind}:${ref._id}`))
                 issues.push(`Missing journal ${kind}:${ref._id}`);
           }

@@ -9,10 +9,11 @@ import { TransfersService } from './transfers.service.js';
 import { TransfersController } from './transfers.controller.js';
 import { WalletsModule } from '../wallets/wallets.module.js';
 import { TransfersV2Controller } from './transfers-v2.controller.js';
+import { TransferHistoryService } from './transfer-history.service.js';
 
 @Module({
   imports: [AuthModule, AccountsModule, LedgerModule, ChainModule, OutboxModule, WalletsModule],
-  providers: [TransfersService, TransferRecoveryService],
+  providers: [TransfersService, TransferRecoveryService, TransferHistoryService],
   controllers: [TransfersController, TransfersV2Controller],
   exports: [TransfersService, TransferRecoveryService],
 })

@@ -19,6 +19,7 @@ import {
   type WalletIntent,
 } from './wallet-v2-client';
 import { ActivityPanel } from './ActivityPanel';
+import { clearSendDraft, loadSendDraft, saveSendDraft } from './send-draft';
 
 interface Review {
   peer: PublicPeer;
@@ -41,19 +42,33 @@ const reasons: Record<string, string> = {
 export function WalletPanel({
   user,
   onSessionExpired,
+  consumerMode = false,
+  view = 'combined',
+  refreshVersion = 0,
+  pendingCount = 0,
+  onOutcomeChanged,
 }: {
   user: AuthUser;
   onSessionExpired: () => void;
+  consumerMode?: boolean;
+  view?: 'wallet' | 'send' | 'combined';
+  refreshVersion?: number;
+  pendingCount?: number | null;
+  onOutcomeChanged?: () => void;
 }) {
+  const restoredDraft = useRef(consumerMode ? loadSendDraft(user.id) : null);
+  const refreshedVersion = useRef(refreshVersion);
   const [accounts, setAccounts] = useState<WalletAccount[]>([]);
   const [wallet, setWallet] = useState<WalletV2 | null>(null);
   const [activityVersion, setActivityVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [walletFailed, setWalletFailed] = useState(false);
   const [error, setError] = useState('');
-  const [handle, setHandle] = useState('');
-  const [assetId, setAssetId] = useState('');
-  const [quantity, setQuantity] = useState('');
+  const [handle, setHandle] = useState(restoredDraft.current?.handle ?? '');
+  const [assetId, setAssetId] = useState(restoredDraft.current?.assetId ?? '');
+  const [quantity, setQuantity] = useState(restoredDraft.current?.quantity ?? '');
+  const [draftSaved, setDraftSaved] = useState(false),
+    [copyMessage, setCopyMessage] = useState('');
   const [review, setReview] = useState<Review | null>(null);
   const [intent, setIntent] = useState<WalletIntent | null>(() => restoreWalletIntent(user.id));
   const [result, setResult] = useState<TransferView | null>(null);
@@ -64,6 +79,15 @@ export function WalletPanel({
   const selectedAsset = accounts.find(
     (account) => account.assetId === assetId && account.status === 'active',
   );
+  async function copyReceive(value: string, copied: string, fallback: string) {
+    try {
+      if (!navigator.clipboard) throw new Error('Clipboard unavailable.');
+      await navigator.clipboard.writeText(value);
+      if (!lifetime.current?.signal.aborted) setCopyMessage(copied);
+    } catch {
+      if (!lifetime.current?.signal.aborted) setCopyMessage(fallback);
+    }
+  }
 
   function failure(error: unknown) {
     if (lifetime.current?.signal.aborted) return;
@@ -91,7 +115,9 @@ export function WalletPanel({
         setWallet(response.wallet);
         setAccounts(balances);
         setAssetId((current) =>
-          availableAssetId(balances, current || response.wallet.preferredAssetId || ''),
+          consumerMode && current && !balances.some((account) => account.status === 'active')
+            ? current
+            : availableAssetId(balances, current || response.wallet.preferredAssetId || ''),
         );
         setWalletFailed(false);
         setActivityVersion((value) => value + 1);
@@ -112,9 +138,23 @@ export function WalletPanel({
     return () => controller.abort();
     // This component is keyed by user ID; each identity has an isolated lifetime.
   }, []);
+  useEffect(() => {
+    if (consumerMode && !intent && !result)
+      setDraftSaved(saveSendDraft({ userId: user.id, handle, assetId, quantity }));
+  }, [consumerMode, user.id, handle, assetId, quantity, intent, result]);
+  useEffect(() => {
+    if (refreshedVersion.current === refreshVersion || busy || loading || inFlight.current) return;
+    refreshedVersion.current = refreshVersion;
+    setReview(null);
+    void refresh(lifetime.current!.signal).catch(failure);
+  }, [refreshVersion, busy, loading]);
 
   async function resolveReview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pendingCount !== 0) {
+      setError('Check your admitted transfers in Activity before starting another send.');
+      return;
+    }
     if (inFlight.current) return;
     inFlight.current = true;
     setBusy(true);
@@ -154,12 +194,14 @@ export function WalletPanel({
       setResult(response.transfer);
       if (applied.terminal) {
         clearWalletIntent();
+        if (consumerMode) clearSendDraft();
         setIntent(null);
         await refresh(signal);
       } else {
         saveWalletIntent(applied.intent);
         setIntent(applied.intent);
       }
+      onOutcomeChanged?.();
     } catch (error) {
       if (
         !signal.aborted &&
@@ -180,6 +222,10 @@ export function WalletPanel({
   }
   function confirm() {
     if (!review || intent || inFlight.current) return;
+    if (pendingCount !== 0) {
+      setError('Check your admitted transfers in Activity before confirming another send.');
+      return;
+    }
     try {
       if (!wallet || Date.parse(review.resolution.expiresAt) <= Date.now()) {
         setReview(null);
@@ -214,11 +260,16 @@ export function WalletPanel({
   }, [intent, busy]);
 
   return (
-    <section className="wallet-section" aria-labelledby="wallet-title">
+    <section
+      className="wallet-section"
+      aria-labelledby={view === 'send' ? 'send-title' : 'wallet-title'}
+    >
       <div className="wallet-heading">
         <div>
           <p className="eyebrow">DEMO · SIMULATED</p>
-          <h2 id="wallet-title">Your wallet</h2>
+          <h2 id={view === 'send' ? 'send-title' : 'wallet-title'}>
+            {view === 'send' ? 'Send demo units' : 'Your wallet'}
+          </h2>
         </div>
         <button
           className="secondary-button"
@@ -231,6 +282,70 @@ export function WalletPanel({
           Refresh balances
         </button>
       </div>
+      {consumerMode && (
+        <div className="transfer-actions">
+          <a href="#/home">Home</a>
+          <a href="#/activity">Activity and receipts</a>
+          <a href={view === 'send' ? '#/wallet' : '#/send'}>
+            {view === 'send' ? 'Wallet and receive' : 'Open Send'}
+          </a>
+        </div>
+      )}
+      {consumerMode && view === 'wallet' && wallet && (
+        <section aria-label="Receive demo units">
+          <h3>Receive demo units</h3>
+          <p>
+            Share your public handle or application wallet ID with a registered sender. You can
+            receive while signed out. No external wallet is needed for demo units.
+          </p>
+          <dl className="custody-metadata">
+            <dt>Public handle</dt>
+            <dd>@{user.publicHandle}</dd>
+            <dt>Application wallet ID</dt>
+            <dd>{wallet.id}</dd>
+          </dl>
+          <button
+            className="secondary-button"
+            onClick={() =>
+              void copyReceive(
+                user.publicHandle,
+                'Receive handle copied.',
+                'Copy your displayed public handle manually.',
+              )
+            }
+          >
+            Copy receive handle
+          </button>
+          <button
+            className="secondary-button"
+            onClick={() =>
+              void copyReceive(
+                wallet.id,
+                'Wallet ID copied.',
+                'Copy your displayed wallet ID manually.',
+              )
+            }
+          >
+            Copy wallet ID
+          </button>
+          {copyMessage && <p role="status">{copyMessage}</p>}
+          {!accounts.some((account) => /[1-9]/.test(account.balance)) && (
+            <p>
+              You have no demo units yet. Receive from a peer or{' '}
+              <a href="#/help">request a demo allocation</a> when enabled.
+            </p>
+          )}
+        </section>
+      )}
+      {consumerMode && !intent && pendingCount !== 0 && (
+        <p className="admin-notice" role="status">
+          {pendingCount === null
+            ? 'Transfer discovery is unavailable. Retry the Home overview before starting another send.'
+            : 'You have an admitted pending transfer. Check its original outcome before starting another send.'}{' '}
+          <a href="#/activity?status=PENDING&direction=SENT">View pending transfers</a> ·{' '}
+          <a href="#/home">Return Home</a>
+        </p>
+      )}
       <div className="wallet-setup-callout">
         <a className="secondary-button" href="#wallet-setup-title">
           Configure wallet
@@ -253,30 +368,32 @@ export function WalletPanel({
         Demo assets have no real monetary value. Send to a registered wallet, even when its owner is
         offline.
       </p>
-      {loading ? (
-        <p role="status">Loading balances...</p>
-      ) : walletFailed ? (
-        <p role="status">Unable to load balances. Refresh balances to try again.</p>
-      ) : accounts.length === 0 ? (
-        <p role="status">
-          No assets are configured yet. You can enter transfer details, but an asset must be
-          configured before you can review a transfer. Refresh balances after setup.
-        </p>
-      ) : (
-        <ul className="wallet-balances">
-          {accounts.map((account) => (
-            <li key={account.assetId}>
-              <span>
-                {account.displayName} <small>{account.code}</small>
-              </span>
-              <strong>{account.balance}</strong>
-              <small>Demo · simulated</small>
-              {account.status === 'disabled' && <small>Transfers unavailable</small>}
-            </li>
-          ))}
-        </ul>
-      )}
-      <div className="transfer-panel" aria-busy={busy}>
+      <div>
+        {loading ? (
+          <p role="status">Loading balances...</p>
+        ) : walletFailed ? (
+          <p role="status">Unable to load balances. Refresh balances to try again.</p>
+        ) : accounts.length === 0 ? (
+          <p role="status">
+            No assets are configured yet. You can enter transfer details, but an asset must be
+            configured before you can review a transfer. Refresh balances after setup.
+          </p>
+        ) : (
+          <ul className="wallet-balances">
+            {accounts.map((account) => (
+              <li key={account.assetId}>
+                <span>
+                  {account.displayName} <small>{account.code}</small>
+                </span>
+                <strong>{account.balance}</strong>
+                <small>Demo · simulated</small>
+                {account.status === 'disabled' && <small>Transfers unavailable</small>}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <div className="transfer-panel" aria-busy={busy} hidden={view === 'wallet'}>
         <h3>Send to a peer</h3>
         {!loading && !walletFailed && accounts.length > 0 && !selectedAsset && (
           <p role="status">
@@ -305,6 +422,12 @@ export function WalletPanel({
             >
               {busy ? 'Checking transfer...' : 'Check this transfer'}
             </button>
+            {consumerMode && (
+              <p>
+                <a href="#/activity">Find this transfer in Activity</a> ·{' '}
+                <a href="#/home">Return Home safely</a>
+              </p>
+            )}
           </div>
         ) : result ? (
           <div role="status" aria-live="polite">
@@ -316,6 +439,16 @@ export function WalletPanel({
               <p>{reasons[result.rejectionCode] ?? 'This transfer could not be completed.'}</p>
             )}
             <p className="transfer-reference">Transfer {result.id}</p>
+            {consumerMode && (
+              <p>
+                <a href={`#/activity/${result.id}`}>
+                  {result.status === 'COMMITTED'
+                    ? 'View transfer receipt'
+                    : 'View original outcome'}
+                </a>{' '}
+                · <a href="#/activity">Activity</a>
+              </p>
+            )}
             <button
               className="primary-button"
               disabled={busy}
@@ -378,11 +511,20 @@ export function WalletPanel({
                 value={assetId}
                 onChange={(event) => setAssetId(event.target.value)}
                 required
-                disabled={loading || walletFailed || !selectedAsset}
+                disabled={
+                  loading ||
+                  walletFailed ||
+                  !accounts.some((account) => account.status === 'active')
+                }
               >
                 <option value="" disabled>
                   Choose an asset
                 </option>
+                {assetId && !accounts.some((account) => account.assetId === assetId) && (
+                  <option value={assetId} disabled>
+                    Saved asset is currently unavailable
+                  </option>
+                )}
                 {accounts.map((account) => (
                   <option
                     key={account.assetId}
@@ -409,12 +551,33 @@ export function WalletPanel({
               <button
                 className="primary-button"
                 type="submit"
-                disabled={loading || walletFailed || !selectedAsset}
+                disabled={loading || walletFailed || !selectedAsset || pendingCount !== 0}
               >
                 {busy ? 'Finding peer...' : 'Review transfer'}
               </button>
             </fieldset>
           </form>
+        )}
+        {consumerMode && !intent && !result && (handle || quantity) && (
+          <div>
+            <p role="status">
+              {draftSaved
+                ? 'Editable draft saved in this tab. Signing out clears it. Submitted transfers remain in Activity.'
+                : 'This draft is available while this page stays open; browser storage is unavailable.'}
+            </p>
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => {
+                setHandle('');
+                setQuantity('');
+                setReview(null);
+                clearSendDraft();
+              }}
+            >
+              Discard editable draft
+            </button>
+          </div>
         )}
         {error && (
           <p className="auth-error" role="alert">
@@ -422,7 +585,9 @@ export function WalletPanel({
           </p>
         )}
       </div>
-      <ActivityPanel key={`${user.id}:${activityVersion}`} onSessionExpired={onSessionExpired} />
+      <div hidden={view === 'send'}>
+        <ActivityPanel key={`${user.id}:${activityVersion}`} onSessionExpired={onSessionExpired} />
+      </div>
     </section>
   );
 }

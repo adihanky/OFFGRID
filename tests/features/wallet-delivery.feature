@@ -1,5 +1,12 @@
 @wallet_delivery
 Feature: Deliver the demo wallet overhaul with durable data and authorization
+  @happy @edge @migration_rehearsal
+  Scenario: A synthetic legacy backup restores and migrates on a separate rehearsal target
+    Given an isolated legacy wallet with issuance and a committed transfer
+    When its serialized backup is restored into a separate guarded rehearsal database
+    Then rehearsal migration preserves financial evidence and reconciles custody
+    And the original legacy database remains unchanged
+
   @happy @edge
   Scenario: Legacy financial evidence survives migration and a repeat cutover
     Given an isolated legacy wallet with issuance and a committed transfer

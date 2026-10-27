@@ -15,6 +15,7 @@ import { ChainService } from '../../apps/api/src/modules/chain/chain.service.js'
 const token = 'real-browser-controlled-setup-token-2026';
 interface LiveWorld {
   live?: TransferHarness;
+  liveCleanupStarted?: boolean;
   web?: ViteDevServer;
   browser?: Browser;
   page?: Page;
@@ -23,9 +24,14 @@ interface LiveWorld {
 }
 Given(
   'a browser connected to an isolated real wallet service',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async function (this: LiveWorld) {
-    this.live = await createTransferHarness({ ADMIN_SETUP_TOKEN: token });
+    const live = await createTransferHarness({ ADMIN_SETUP_TOKEN: token });
+    if (this.liveCleanupStarted) {
+      await live.close();
+      throw new Error('Live browser fixture completed after scenario cleanup.');
+    }
+    this.live = live;
     this.offline = await this.live.register('browser_bob');
     await this.live.request(this.offline, '/api/auth/signout', 'POST');
     this.web = await createServer({
@@ -69,7 +75,11 @@ When(
     await page.getByLabel('Public handle', { exact: true }).fill('browser_operator');
     await page.getByLabel('Password', { exact: true }).fill('Isolated-browser-password-2026');
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
-    await page.getByRole('heading', { name: 'Your wallet', exact: true }).waitFor();
+    await page.getByRole('heading', { name: 'Your workspace', exact: true }).waitFor();
+    await page
+      .getByRole('navigation', { name: 'Workspace navigation' })
+      .getByRole('link', { name: 'Wallet', exact: true })
+      .click();
     const walletPosition = await page
       .getByRole('heading', { name: 'Your wallet', exact: true })
       .boundingBox();
@@ -108,7 +118,10 @@ When(
     await page.getByLabel('Issuance quantity').fill('100.00');
     await page.getByLabel('Issuance reason').fill('Fund controlled browser wallet');
     await page.getByRole('button', { name: 'Issue demo units', exact: true }).click();
-    await page.getByRole('link', { name: 'Wallet & send', exact: true }).click();
+    await page
+      .getByRole('navigation', { name: 'Workspace navigation' })
+      .getByRole('link', { name: 'Send', exact: true })
+      .click();
     await page.locator('.wallet-balances').getByText('100.00', { exact: true }).waitFor();
   },
 );
@@ -126,6 +139,10 @@ When(
     await page.getByRole('button', { name: 'Confirm transfer' }).click();
     await page.getByRole('heading', { name: 'Transfer complete' }).waitFor();
     await page.locator('.wallet-balances').getByText('87.50', { exact: true }).waitFor();
+    await page
+      .getByRole('navigation', { name: 'Workspace navigation' })
+      .getByRole('link', { name: 'Wallet', exact: true })
+      .click();
     await page
       .getByRole('region', { name: 'Custody activity' })
       .getByText('12.50 LIVE', { exact: true })
@@ -198,6 +215,7 @@ Then('no payment commits and my form can start another transfer', async function
   await this.page!.getByLabel('Quantity', { exact: true }).fill('1.00');
 });
 After({ tags: '@wallet_live_browser', timeout: 30000 }, async function (this: LiveWorld) {
+  this.liveCleanupStarted = true;
   try {
     await this.browser?.close();
   } finally {

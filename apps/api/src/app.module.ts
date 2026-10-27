@@ -10,16 +10,28 @@ import { LedgerModule } from './modules/ledger/ledger.module.js';
 import { TransfersModule } from './modules/transfers/transfers.module.js';
 import { WalletsModule } from './modules/wallets/wallets.module.js';
 import { AdminModule } from './modules/admin/admin.module.js';
+import { ConfigurationModule } from './modules/configuration/configuration.module.js';
+import { PolicyModule } from './modules/configuration/policy-reader.js';
+import { WorkspaceModule } from './modules/workspace/workspace.module.js';
+import { RequestsModule } from './modules/requests/requests.module.js';
+import { RecoveryModule } from './modules/auth/recovery.module.js';
+import { OperationsModule } from './modules/operations/operations.module.js';
 
 @Module({
   imports: [
     EnvironmentModule,
     DatabaseModule,
+    PolicyModule,
     HealthModule,
     AuthModule,
+    RecoveryModule,
     AccountsModule,
     WalletsModule,
     AdminModule,
+    ConfigurationModule,
+    WorkspaceModule,
+    RequestsModule,
+    OperationsModule,
     TransfersModule,
     LedgerModule,
     ChainModule,

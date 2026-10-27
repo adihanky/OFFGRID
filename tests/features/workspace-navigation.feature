@@ -11,7 +11,7 @@ Feature: Focused workspace navigation preserves ongoing work
   Scenario: An unknown bookmark falls back safely and sign-out removes the workspace
     Given a real wallet setup browser for an "asset administrator"
     When I open an unknown workspace bookmark
-    Then only the wallet is visible and sign-out clears workspace navigation
+    Then only Home is visible and sign-out clears workspace navigation
 
   @happy @edge
   Scenario: Task navigation remains usable on a narrow screen with keyboard input

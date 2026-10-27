@@ -6,6 +6,7 @@ import { collectionSchema, date, long, oid, text } from '../accounts/schema.js';
 import { MAX_UNITS, toLong, units } from '../accounts/quantity.js';
 import { BusinessRejection, type TransferRecord } from '../transfers/transfers.models.js';
 import type { LedgerEntry } from '../ledger/ledger.service.js';
+import { verificationRows } from '../ledger/verification-budget.js';
 export const GENESIS_HASH = '0'.repeat(64);
 export interface ChainHead {
   _id: ObjectId;
@@ -147,22 +148,27 @@ export class ChainService implements OnModuleInit {
       { session },
     );
   }
-  async verify(assetId?: ObjectId): Promise<{ ok: boolean; issues: string[] }> {
+  async verify(assetId?: ObjectId, maximum?: number): Promise<{ ok: boolean; issues: string[] }> {
     const issues: string[] = [];
     const session = this.database.client.startSession();
     try {
       await session.withTransaction(
         async () => {
           issues.length = 0;
-          const heads = await this.heads.find(assetId ? { assetId } : {}, { session }).toArray();
-          const entries = await this.entries
-            .find(assetId ? { assetId } : {}, { session })
-            .sort({ sequence: 1 })
-            .toArray();
-          const transfers = await this.database.db
-            .collection<TransferRecord>('transfers', { promoteLongs: false })
-            .find({ status: 'COMMITTED', ...(assetId ? { assetId } : {}) }, { session })
-            .toArray();
+          const heads = await verificationRows(
+            this.heads.find(assetId ? { assetId } : {}, { session }),
+            maximum,
+          );
+          const entries = await verificationRows(
+            this.entries.find(assetId ? { assetId } : {}, { session }).sort({ sequence: 1 }),
+            maximum,
+          );
+          const transfers = await verificationRows(
+            this.database.db
+              .collection<TransferRecord>('transfers', { promoteLongs: false })
+              .find({ status: 'COMMITTED', ...(assetId ? { assetId } : {}) }, { session }),
+            maximum,
+          );
           for (const head of heads) {
             let sequence = 0n;
             let hash = GENESIS_HASH;
@@ -176,10 +182,12 @@ export class ChainService implements OnModuleInit {
               )
                 issues.push(`Broken chain ${entry._id}`);
               const transfer = transfers.find((t) => t._id.equals(entry.transferId));
-              const journal = await this.database.db
-                .collection<LedgerEntry>('ledgerEntries', { promoteLongs: false })
-                .find({ referenceKind: 'transfer', referenceId: entry.transferId }, { session })
-                .toArray();
+              const journal = await verificationRows(
+                this.database.db
+                  .collection<LedgerEntry>('ledgerEntries', { promoteLongs: false })
+                  .find({ referenceKind: 'transfer', referenceId: entry.transferId }, { session }),
+                maximum,
+              );
               const debit = journal.find((e) => e.side === 'debit');
               const credit = journal.find((e) => e.side === 'credit');
               if (

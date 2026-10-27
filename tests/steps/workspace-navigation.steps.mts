@@ -29,37 +29,46 @@ Then(
   async function (this: NavigationWorld) {
     const page = this.setupBrowser!.page;
     await page.goBack();
-    await active(page, 'Wallet & send');
+    await active(page, 'Send');
     assert.equal(await page.getByLabel('Recipient public handle').inputValue(), 'navigation_peer');
     assert.equal(await page.getByLabel('Quantity', { exact: true }).inputValue(), '2.50');
     await page.goForward();
     await active(page, 'Assets');
   },
 );
-Then('reloading a bookmarked task opens only that task', async function (this: NavigationWorld) {
-  const page = this.setupBrowser!.page;
-  await page.getByRole('link', { name: 'Set up wallet', exact: true }).click();
-  await page.getByLabel('Wallet name', { exact: true }).fill('Unsaved navigation draft');
-  await page.getByRole('link', { name: 'Assets', exact: true }).click();
-  await page.getByRole('link', { name: 'Set up wallet', exact: true }).click();
-  assert.equal(
-    await page.getByLabel('Wallet name', { exact: true }).inputValue(),
-    'Unsaved navigation draft',
-  );
-  await page.reload();
-  await page.getByLabel('Wallet name', { exact: true }).waitFor();
-  await active(page, 'Set up wallet');
-  assert.match(page.url(), /#wallet-setup-title$/);
-});
+Then(
+  'reloading a bookmarked task opens only that task',
+  { timeout: 30000 },
+  async function (this: NavigationWorld) {
+    const page = this.setupBrowser!.page;
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    await page.getByLabel('Wallet name', { exact: true }).fill('Unsaved navigation draft');
+    await page.getByRole('link', { name: 'Assets', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
+    assert.equal(
+      await page.getByLabel('Wallet name', { exact: true }).inputValue(),
+      'Unsaved navigation draft',
+    );
+    await page.reload();
+    await page.getByLabel('Wallet name', { exact: true }).waitFor();
+    await active(page, 'Settings');
+    assert.match(page.url(), /#\/settings$/);
+    await page.goto(`${new URL(page.url()).origin}/#wallet-setup-title`);
+    await page.reload();
+    await page.getByLabel('Wallet name', { exact: true }).waitFor();
+    await active(page, 'Settings');
+    assert.match(page.url(), /#wallet-setup-title$/);
+  },
+);
 When('I open an unknown workspace bookmark', async function (this: NavigationWorld) {
   const page = this.setupBrowser!.page;
   await page.goto(`${new URL(page.url()).origin}/#not-a-task`);
 });
 Then(
-  'only the wallet is visible and sign-out clears workspace navigation',
+  'only Home is visible and sign-out clears workspace navigation',
   async function (this: NavigationWorld) {
     const page = this.setupBrowser!.page;
-    await active(page, 'Wallet & send');
+    await active(page, 'Home');
     await page.getByRole('link', { name: 'Administration', exact: true }).click();
     await active(page, 'Administration');
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
@@ -74,10 +83,10 @@ When(
   async function (this: NavigationWorld) {
     const page = this.setupBrowser!.page;
     await page.setViewportSize({ width: 360, height: 800 });
-    const link = page.getByRole('link', { name: 'Set up wallet', exact: true });
+    const link = page.getByRole('link', { name: 'Settings', exact: true });
     await link.focus();
     await page.keyboard.press('Enter');
-    await active(page, 'Set up wallet');
+    await active(page, 'Settings');
     assert.equal(
       await page.evaluate(
         'document.querySelector(".workspace-content") === document.activeElement',
@@ -90,8 +99,20 @@ Then(
   'all workspace tasks fit the viewport and the active task is announced',
   async function (this: NavigationWorld) {
     const page = this.setupBrowser!.page;
-    for (const label of ['Wallet & send', 'Assets', 'Set up wallet', 'Administration']) {
-      await page.getByRole('link', { name: label, exact: true }).click();
+    for (const label of [
+      'Home',
+      'Wallet',
+      'Send',
+      'Activity',
+      'Settings',
+      'Assets',
+      'Help',
+      'Administration',
+    ]) {
+      await page
+        .getByRole('navigation', { name: 'Workspace navigation' })
+        .getByRole('link', { name: label, exact: true })
+        .click();
       await active(page, label);
       assert.equal(await page.evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
     }

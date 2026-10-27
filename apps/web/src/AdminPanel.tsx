@@ -9,6 +9,10 @@ import type {
 import { v2Api, walletRequest, walletWrite, WalletApiError } from './wallet-v2-client';
 import { NetworkAdminPanel } from './NetworkAdminPanel';
 import { administratorAccess } from './administrator-access';
+import { ConfigurationPanel } from './ConfigurationPanel';
+import { RequestReviewPanel } from './RequestsPanel';
+import { OperationsPanel } from './OperationsPanel';
+import { adminDestination } from './consumer-navigation';
 
 type Grant = { id: string; handle: string; role: WalletRole; status: string; revision: string };
 type Audit = { id: string; action: string; reason: string; createdAt: string };
@@ -17,17 +21,25 @@ export function AdminPanel({
   onChanged,
   onSessionExpired,
   accountSetupRequested = false,
+  fragment = '',
+  active = true,
 }: {
   user: AuthUser;
   onChanged: () => void;
   onSessionExpired: () => void;
   accountSetupRequested?: boolean;
+  fragment?: string;
+  active?: boolean;
 }) {
   const [status, setStatus] = useState<AdministrationStatus | null>(null);
   const [assets, setAssets] = useState<AssetV2[]>([]);
   const [grants, setGrants] = useState<Grant[]>([]);
   const [audit, setAudit] = useState<Audit[]>([]);
   const [tab, setTab] = useState('assets');
+  useEffect(() => {
+    const requested = adminDestination(fragment);
+    if (requested) setTab(requested);
+  }, [fragment]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -74,17 +86,20 @@ export function AdminPanel({
     if (signal?.aborted) return;
     setStatus(next);
     setTab((current) => {
-      const required = {
-        assets: 'ASSET_ADMIN',
-        networks: 'ASSET_ADMIN',
-        demo: 'DEMO_OPERATOR',
-        access: 'ACCESS_ADMIN',
-        audit: 'AUDITOR',
-      } as const;
-      return next.roles.includes(required[current as keyof typeof required])
+      const required: Record<string, WalletRole[]> = {
+        assets: ['ASSET_ADMIN'],
+        networks: ['ASSET_ADMIN'],
+        demo: ['DEMO_OPERATOR'],
+        access: ['ACCESS_ADMIN'],
+        audit: ['AUDITOR'],
+        policies: ['ASSET_ADMIN', 'ACCESS_ADMIN', 'AUDITOR'],
+        requests: ['ASSET_ADMIN', 'ACCESS_ADMIN'],
+        operations: ['AUDITOR'],
+      };
+      return required[current]?.some((role) => next.roles.includes(role))
         ? current
         : (Object.keys(required).find((key) =>
-            next.roles.includes(required[key as keyof typeof required]),
+            required[key]!.some((role) => next.roles.includes(role)),
           ) ?? 'assets');
     });
     if (next.demoEnabled && next.roles.includes('DEMO_OPERATOR')) {
@@ -214,7 +229,14 @@ export function AdminPanel({
               Your administrator access is active. To add another administrator, have them register
               an account, then grant their public handle the required roles in Access.
             </p>
-            <button className="secondary-button" disabled={busy} onClick={() => setTab('access')}>
+            <button
+              className="secondary-button"
+              disabled={busy}
+              onClick={() => {
+                setTab('access');
+                if (fragment) window.location.hash = '#/admin/access';
+              }}
+            >
               Manage administrator accounts
             </button>
           </>
@@ -229,10 +251,15 @@ export function AdminPanel({
               administration.
             </p>
             <p>
-              If this is a new installation and no administrator exists, the installation operator
-              must configure ADMIN_SETUP_TOKEN on the API and restart it. The one-use token form
-              will then appear here.
+              Installation setup belongs to the installation operator. You can continue using
+              Wallet, Activity and Settings while an administrator reviews your access request.
             </p>
+            {fragment && (
+              <p>
+                <a href="#/help">Request administrator access</a> · <a href="#/home">Return Home</a>
+                . Installation setup belongs to the installation operator.
+              </p>
+            )}
           </>
         )}
       </details>
@@ -295,18 +322,95 @@ export function AdminPanel({
                   key={id}
                   className={tab === id ? 'selected' : ''}
                   aria-pressed={tab === id}
-                  onClick={() => setTab(id)}
+                  onClick={() => {
+                    setTab(id);
+                    if (fragment) window.location.hash = `#/admin/${id}`;
+                  }}
                 >
                   {label}
                 </button>
               ))}
+            {status.roles.some((role) =>
+              ['ASSET_ADMIN', 'ACCESS_ADMIN', 'AUDITOR'].includes(role),
+            ) && (
+              <button
+                className={tab === 'policies' ? 'selected' : ''}
+                aria-pressed={tab === 'policies'}
+                onClick={() => {
+                  setTab('policies');
+                  if (fragment) window.location.hash = '#/admin/policies';
+                }}
+              >
+                Configuration
+              </button>
+            )}
+            {status.roles.some((role) => ['ASSET_ADMIN', 'ACCESS_ADMIN'].includes(role)) && (
+              <button
+                className={tab === 'requests' ? 'selected' : ''}
+                aria-pressed={tab === 'requests'}
+                onClick={() => {
+                  setTab('requests');
+                  if (fragment) window.location.hash = '#/admin/requests';
+                }}
+              >
+                Requests
+              </button>
+            )}
+            {status.roles.includes('AUDITOR') && (
+              <button
+                className={tab === 'operations' ? 'selected' : ''}
+                aria-pressed={tab === 'operations'}
+                onClick={() => {
+                  setTab('operations');
+                  if (fragment) window.location.hash = '#/admin/operations';
+                }}
+              >
+                Operations
+              </button>
+            )}
           </nav>
-          {tab === 'networks' && status.roles.includes('ASSET_ADMIN') && (
-            <NetworkAdminPanel
-              user={user}
-              onChanged={onChanged}
-              onSessionExpired={onSessionExpired}
-            />
+          {status.roles.some((role) =>
+            ['ASSET_ADMIN', 'ACCESS_ADMIN', 'AUDITOR'].includes(role),
+          ) && (
+            <div hidden={tab !== 'policies'}>
+              <ConfigurationPanel
+                user={user}
+                roles={status.roles}
+                active={active && tab === 'policies'}
+                onChanged={onChanged}
+                onSessionExpired={onSessionExpired}
+              />
+            </div>
+          )}
+          {status.roles.some((role) => ['ASSET_ADMIN', 'ACCESS_ADMIN'].includes(role)) && (
+            <div hidden={tab !== 'requests'}>
+              <RequestReviewPanel
+                user={user}
+                roles={status.roles}
+                active={active && tab === 'requests'}
+                onChanged={onChanged}
+                onSessionExpired={onSessionExpired}
+              />
+            </div>
+          )}
+          {status.roles.includes('AUDITOR') && (
+            <div hidden={tab !== 'operations'}>
+              <OperationsPanel
+                user={user}
+                active={active && tab === 'operations'}
+                fragment={fragment}
+                onSessionExpired={onSessionExpired}
+              />
+            </div>
+          )}
+          {status.roles.includes('ASSET_ADMIN') && (
+            <div hidden={tab !== 'networks'}>
+              <NetworkAdminPanel
+                user={user}
+                onChanged={onChanged}
+                onSessionExpired={onSessionExpired}
+              />
+            </div>
           )}
           {tab === 'assets' && status.roles.includes('ASSET_ADMIN') && (
             <div className="admin-grid">

@@ -81,6 +81,32 @@ export class WalletBrowser {
         case '/api/v2/admin/status':
           body = { roles: [], setupAvailable: false, maintenance: false, demoEnabled: true };
           break;
+        case '/api/v2/workspace':
+          body = {
+            serverTime: new Date().toISOString(),
+            mode: 'SIMULATED',
+            roles: [],
+            readiness: {
+              wallet: 'READY',
+              assets: this.accounts.some((account) => account.status === 'active')
+                ? 'AVAILABLE'
+                : 'EMPTY',
+              balance: 'FUNDED',
+              recovery: 'READY',
+            },
+            pendingCount: 0,
+            receive: { publicHandle: user.publicHandle, walletId: '666666666666666666666666' },
+            helpUrl: '',
+            policyRevision: '0',
+            nextAction: 'SEND',
+            capabilities: {
+              send: { enabled: true, reason: 'Controlled send fixture', action: 'SEND' },
+              receive: { enabled: true, reason: 'Controlled receive fixture', action: 'RECEIVE' },
+              accessRequest: { enabled: false, reason: 'No request fixture', action: 'HELP' },
+              allocationRequest: { enabled: false, reason: 'No request fixture', action: 'HELP' },
+            },
+          };
+          break;
         case '/api/v2/custody':
           body = { events: [], nextCursor: null };
           break;
@@ -156,6 +182,10 @@ export class WalletBrowser {
               : { message: 'Peer is unavailable.' };
           break;
         case '/api/v2/transfers': {
+          if (request.method() === 'GET') {
+            body = { transfers: [], nextCursor: null };
+            break;
+          }
           assert.equal(request.method(), 'POST');
           assert.equal(request.headers()['x-csrf-token'], 'controlled-browser-fixture');
           this.posts.push({
@@ -198,8 +228,8 @@ export class WalletBrowser {
     });
     const address = this.server.httpServer!.address();
     assert.ok(address && typeof address === 'object');
-    await this.page.goto(`http://127.0.0.1:${address.port}`);
-    await this.page.getByRole('heading', { name: 'Your wallet' }).waitFor();
+    await this.page.goto(`http://127.0.0.1:${address.port}/#/send`);
+    await this.page.getByRole('heading', { name: 'Send demo units' }).waitFor();
   }
 
   async typeDetails(quantity = '3.25') {

@@ -717,3 +717,26 @@ button:disabled {
     min-height: auto;
   }
 }
+[hidden] {
+  display: none !important;
+}
+.history-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.admin-form input[type='checkbox'] {
+  width: auto;
+  display: inline-block;
+  margin: 0 12px;
+}
+.wallet-section,
+.admin-form,
+.workspace-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+button,
+a {
+  touch-action: manipulation;
+}

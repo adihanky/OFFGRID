@@ -2,6 +2,8 @@ import 'reflect-metadata';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { EJSON, ObjectId } from 'bson';
+import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import type { Document, IndexSpecification } from 'mongodb';
 import { After, Given, When, Then } from '@cucumber/cucumber';
 import type { ActivityPage, AssetV2, SeedPreview } from '@p2p/contracts';
 import {
@@ -12,6 +14,7 @@ import {
 import {
   migrateLegacyWallets,
   MIGRATION_POLICY,
+  migrationCollections,
 } from '../../apps/api/src/modules/wallets/wallet-migration.js';
 import { CustodyService } from '../../apps/api/src/modules/custody/custody.service.js';
 import { WalletsService } from '../../apps/api/src/modules/wallets/wallets.service.js';
@@ -19,11 +22,14 @@ import { DemoService } from '../../apps/api/src/modules/admin/demo.service.js';
 import { AdminService } from '../../apps/api/src/modules/admin/admin.service.js';
 import { AuthService } from '../../apps/api/src/modules/auth/auth.service.js';
 import { toLong } from '../../apps/api/src/modules/accounts/quantity.js';
+import { DatabaseService } from '../../apps/api/src/database/database.service.js';
+import { assertDemoTarget } from '../../apps/api/src/modules/accounts/demo-target.js';
 
 const setupToken = 'isolated-setup-token-at-least-32-characters';
 const seedPassword = 'Isolated-demo-password-2026';
 interface DeliveryWorld {
   delivery?: TransferHarness;
+  deliveryCleanupStarted?: boolean;
   actor?: TransferCaller;
   bob?: TransferCaller;
   stranger?: TransferCaller;
@@ -37,6 +43,16 @@ interface DeliveryWorld {
   counts?: number[];
   afterSpend?: string;
   eventId?: string;
+  rehearsal?: { database: DatabaseService; custody: CustodyService; name: string };
+}
+async function createDeliveryFixture(world: DeliveryWorld, overrides: Record<string, string> = {}) {
+  const harness = await createTransferHarness(overrides);
+  if (world.deliveryCleanupStarted) {
+    await harness.close();
+    throw new Error('Delivery fixture completed after scenario cleanup.');
+  }
+  world.delivery = harness;
+  return harness;
 }
 const draft = {
   code: 'CONFIG',
@@ -48,7 +64,7 @@ const draft = {
   maximum: '10.00',
   reason: 'Controlled scenario',
 };
-async function evidence(h: TransferHarness) {
+async function evidence(h: Pick<TransferHarness, 'database'>) {
   const result: Record<string, unknown> = {};
   for (const name of ['accounts', 'demoIssuances', 'transfers', 'ledgerEntries', 'chainEntries']) {
     const rows = await h.database.db
@@ -63,9 +79,9 @@ async function evidence(h: TransferHarness) {
 }
 Given(
   'an isolated legacy wallet with issuance and a committed transfer',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async function (this: DeliveryWorld) {
-    const h = (this.delivery = await createTransferHarness());
+    const h = await createDeliveryFixture(this);
     this.actor = await h.register('legacy_alice');
     this.bob = await h.register('legacy_bob');
     const asset = await h.accounts.createAsset({
@@ -234,9 +250,9 @@ Then(
 );
 Given(
   'an isolated administration fixture',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async function (this: DeliveryWorld) {
-    const h = (this.delivery = await createTransferHarness({ ADMIN_SETUP_TOKEN: setupToken }));
+    const h = await createDeliveryFixture(this, { ADMIN_SETUP_TOKEN: setupToken });
     this.actor = await h.register('delivery_admin');
     this.bob = await h.register('delivery_bob');
     this.stranger = await h.register('delivery_stranger');
@@ -579,6 +595,7 @@ Then(
   },
 );
 After({ tags: '@wallet_delivery', timeout: 30000 }, async function (this: DeliveryWorld) {
+  this.deliveryCleanupStarted = true;
   await this.delivery?.close();
 });
 
@@ -663,3 +680,86 @@ When(
     assert.equal(reportedPending, true);
   },
 );
+
+When(
+  'its serialized backup is restored into a separate guarded rehearsal database',
+  { timeout: 120000 },
+  async function (this: DeliveryWorld) {
+    const h = this.delivery!;
+    assert.match(h.environment.MONGODB_DB, /^p2p_transfer_test_[a-f0-9]{32}$/);
+    const name = `p2p_transfer_test_${randomUUID().replaceAll('-', '')}`;
+    const environment = { ...h.environment, MONGODB_DB: name };
+    assertDemoTarget(environment);
+    const database = new DatabaseService(environment),
+      custody = new CustodyService(database);
+    this.rehearsal = { database, custody, name };
+    const snapshot = [];
+    for (const name of migrationCollections) {
+      const info = await h.database.db.listCollections({ name }).next();
+      snapshot.push({
+        name,
+        options: info && 'options' in info ? info.options : {},
+        indexes: await h.database.db.collection(name).listIndexes().toArray(),
+        documents: await h.database.db
+          .collection(name, { promoteLongs: false })
+          .find({})
+          .sort({ _id: 1 })
+          .toArray(),
+      });
+    }
+    await mkdir('.local/test-results/p2p-enhancements', { recursive: true });
+    const path = `.local/test-results/p2p-enhancements/rehearsal-${name}.ejson`;
+    await writeFile(path, EJSON.stringify(snapshot, { relaxed: false }), { flag: 'wx' });
+    const restored = EJSON.parse(await readFile(path, 'utf8'), { relaxed: false }) as Array<{
+      name: string;
+      options: Document;
+      indexes: Document[];
+      documents: Document[];
+    }>;
+    await database.onModuleInit();
+    for (const row of restored) {
+      await database.db.createCollection(row.name, row.options);
+      if (row.documents.length) await database.db.collection(row.name).insertMany(row.documents);
+      for (const index of row.indexes.filter((index) => index['name'] !== '_id_')) {
+        const { key, name, unique, sparse, partialFilterExpression, expireAfterSeconds } = index;
+        await database.db.collection(row.name).createIndex(key as IndexSpecification, {
+          name,
+          ...(unique !== undefined ? { unique } : {}),
+          ...(sparse !== undefined ? { sparse } : {}),
+          ...(partialFilterExpression ? { partialFilterExpression } : {}),
+          ...(expireAfterSeconds !== undefined ? { expireAfterSeconds } : {}),
+        });
+      }
+    }
+    await custody.onModuleInit();
+    assert.equal(await evidence({ database }), this.before);
+  },
+);
+Then(
+  'rehearsal migration preserves financial evidence and reconciles custody',
+  { timeout: 60000 },
+  async function (this: DeliveryWorld) {
+    const { database, custody } = this.rehearsal!;
+    await migrateLegacyWallets(database, custody, MIGRATION_POLICY);
+    assert.equal(await evidence({ database }), this.before);
+    assert.equal(await database.db.collection('wallets').countDocuments(), 2);
+    assert.deepEqual(await custody.verify(), { ok: true, issues: [] });
+    assert.deepEqual(await migrateLegacyWallets(database, custody, MIGRATION_POLICY), {
+      alreadyComplete: true,
+    });
+  },
+);
+Then('the original legacy database remains unchanged', async function (this: DeliveryWorld) {
+  assert.equal(await evidence(this.delivery!), this.before);
+  assert.equal(await this.delivery!.database.db.collection('wallets').countDocuments(), 0);
+  assert.equal(await this.delivery!.database.db.collection('walletMigrations').countDocuments(), 0);
+});
+After({ tags: '@migration_rehearsal', timeout: 15000 }, async function (this: DeliveryWorld) {
+  if (!this.rehearsal) return;
+  assert.match(this.rehearsal.name, /^p2p_transfer_test_[a-f0-9]{32}$/);
+  try {
+    await this.rehearsal.database.db.dropDatabase();
+  } finally {
+    await this.rehearsal.database.onApplicationShutdown();
+  }
+});

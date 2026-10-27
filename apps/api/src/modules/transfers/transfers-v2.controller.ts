@@ -20,13 +20,43 @@ import { AuthGuard, type AuthenticatedRequest } from '../auth/auth.guard.js';
 import { requireCsrf } from '../auth/auth.http.js';
 import { strictObject } from '../accounts/accounts.service.js';
 import { TransfersService } from './transfers.service.js';
+import { TransferHistoryService } from './transfer-history.service.js';
 @Controller('v2/transfers')
 @UseGuards(AuthGuard)
 export class TransfersV2Controller {
   constructor(
     @Inject(TransfersService) readonly transfers: TransfersService,
     @Inject(ENVIRONMENT) readonly environment: Environment,
+    @Inject(TransferHistoryService) readonly history: TransferHistoryService,
   ) {}
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  async list(@Req() request: AuthenticatedRequest, @Query() query: unknown) {
+    await this.transfers.accounts.throttle(request.auth.user.id, 'v2-read', 240);
+    return this.history.list(request.auth.user.id, query);
+  }
+  @Get(':id/receipt')
+  @Header('Cache-Control', 'no-store')
+  async receipt(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Query() query: unknown,
+  ) {
+    strictObject(query, []);
+    await this.transfers.accounts.throttle(request.auth.user.id, 'v2-read', 240);
+    return this.history.receipt(request.auth.user.id, id);
+  }
+  @Get(':id/chain')
+  @Header('Cache-Control', 'no-store')
+  async evidence(
+    @Req() request: AuthenticatedRequest,
+    @Param('id') id: string,
+    @Query() query: unknown,
+  ) {
+    strictObject(query, []);
+    await this.transfers.accounts.throttle(request.auth.user.id, 'v2-read', 240);
+    return this.history.evidence(request.auth.user.id, id);
+  }
   @Get(':id')
   @Header('Cache-Control', 'no-store')
   async detail(

@@ -73,6 +73,12 @@ export function WalletSetupPanel({
     event.preventDefault();
     void perform(work);
   }
+  async function refreshWalletState() {
+    const signal = lifetime.current!.signal;
+    const current = await v2Api.wallet(signal);
+    if (signal.aborted) throw new DOMException('Account changed.', 'AbortError');
+    setWallet(current.wallet);
+  }
   const createChallenge = (address: string) =>
     walletWrite<WalletChallenge>(
       user.id,
@@ -117,7 +123,7 @@ export function WalletSetupPanel({
           onSubmit={(event) =>
             submit(event, async () => {
               if (!wallet) return;
-              await walletWrite(
+              const saved = await walletWrite<{ wallet: WalletV2 }>(
                 user.id,
                 'v2/wallet/settings',
                 {
@@ -127,6 +133,10 @@ export function WalletSetupPanel({
                 },
                 { signal: lifetime.current!.signal },
               );
+              if (lifetime.current!.signal.aborted) return;
+              setWallet(saved.wallet);
+              setDisplayName(saved.wallet.displayName ?? displayName);
+              setPreferredAssetId(saved.wallet.preferredAssetId ?? '');
               onChanged();
             })
           }
@@ -210,6 +220,7 @@ export function WalletSetupPanel({
                     verify,
                     lifetime.current!.signal,
                   );
+                  await refreshWalletState();
                   onChanged();
                 })
               }
@@ -265,6 +276,7 @@ export function WalletSetupPanel({
                     onClick={() =>
                       void perform(async () => {
                         await verify(challenge.id, signature);
+                        await refreshWalletState();
                         onChanged();
                       })
                     }
@@ -290,9 +302,15 @@ export function WalletSetupPanel({
                     disabled={busy}
                     onClick={() =>
                       void perform(async () => {
-                        await walletWrite(user.id, `v2/wallet/bindings/${binding.id}/revoke`, {
-                          revision: binding.revision,
-                        });
+                        await walletWrite(
+                          user.id,
+                          `v2/wallet/bindings/${binding.id}/revoke`,
+                          {
+                            revision: binding.revision,
+                          },
+                          { signal: lifetime.current!.signal },
+                        );
+                        await refreshWalletState();
                         onChanged();
                       })
                     }

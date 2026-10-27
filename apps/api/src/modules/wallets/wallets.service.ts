@@ -20,6 +20,7 @@ import type { WalletBindingRecord } from './wallets.models.js';
 import { getAddress } from 'ethers';
 import { z } from 'zod';
 import { TRANSACTION_OPTIONS } from '../accounts/accounts.service.js';
+import { productPolicy } from '../configuration/policy-reader.js';
 
 interface ResolutionRecord {
   _id: ObjectId;
@@ -34,6 +35,7 @@ interface ResolutionRecord {
   assetRevision: Long;
   createdAt: Date;
   expiresAt: Date;
+  policyRevision?: string;
 }
 export function demoAssetView(asset: AssetRecord): AssetV2 {
   return {
@@ -96,8 +98,21 @@ export class WalletsService implements OnModuleInit {
         assetRevision: long,
         createdAt: date,
         expiresAt: date,
+        policyRevision: { bsonType: 'string' },
       },
-      undefined,
+      [
+        'schemaVersion',
+        'callerId',
+        'assetId',
+        'senderWalletId',
+        'recipientId',
+        'recipientWalletId',
+        'senderRevision',
+        'recipientRevision',
+        'assetRevision',
+        'createdAt',
+        'expiresAt',
+      ],
       { additionalProperties: false },
     );
     await this.resolutions.createIndex(
@@ -253,6 +268,7 @@ export class WalletsService implements OnModuleInit {
     )
       throw new NotFoundException('Recipient is unavailable.');
     const now = new Date();
+    const policy = await productPolicy(this.accounts.policies);
     const resolution: ResolutionRecord = {
       _id: new ObjectId(),
       schemaVersion: 2,
@@ -265,7 +281,8 @@ export class WalletsService implements OnModuleInit {
       recipientRevision: recipient.eligibilityRevision,
       assetRevision: asset.revision ?? toLong(0n),
       createdAt: now,
-      expiresAt: new Date(now.getTime() + 120000),
+      expiresAt: new Date(now.getTime() + policy.values.reviewSeconds * 1000),
+      policyRevision: policy.revision,
     };
     await this.resolutions.insertOne(resolution, { writeConcern: { w: 'majority' } });
     return {
@@ -297,6 +314,13 @@ export class WalletsService implements OnModuleInit {
       throw new ConflictException({
         code: 'REVIEW_REQUIRED',
         message: 'Resolve and review the recipient again.',
+      });
+    if (
+      (resolution.policyRevision ?? '0') !== (await productPolicy(this.accounts.policies)).revision
+    )
+      throw new ConflictException({
+        code: 'REVIEW_REQUIRED',
+        message: 'Product policy changed. Your entries are retained; review again.',
       });
     for (const [id, revision] of [
       [resolution.senderWalletId, resolution.senderRevision],

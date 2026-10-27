@@ -36,10 +36,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   return response.status === 204 ? (undefined as T) : (response.json() as Promise<T>);
 }
-async function write<T>(path: string, body?: unknown) {
-  const { csrfToken } = await request<CsrfResponse>('csrf');
+async function write<T>(path: string, body?: unknown, signal?: AbortSignal) {
+  const { csrfToken } = await request<CsrfResponse>('csrf', { signal });
   return request<T>(path, {
     method: 'POST',
+    signal,
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
     body: JSON.stringify(body ?? {}),
   });
@@ -50,4 +51,13 @@ export const authApi = {
   signUp: (input: SignUpRequest) => write<AuthResponse>('signup', input),
   signIn: (input: SignInRequest) => write<AuthResponse>('signin', input),
   signOut: () => write<void>('signout'),
+  recoveryStatus: (signal?: AbortSignal) =>
+    request<{ deliveryEnabled: boolean; passwordResetPolicy: string; message: string }>(
+      'recovery-status',
+      { signal },
+    ),
+  requestPasswordReset: (email: string, signal?: AbortSignal) =>
+    write<{ accepted: boolean; message: string }>('password-reset-requests', { email }, signal),
+  resetPassword: (token: string, password: string, signal?: AbortSignal) =>
+    write<{ completed: boolean; message: string }>('password-resets', { token, password }, signal),
 };

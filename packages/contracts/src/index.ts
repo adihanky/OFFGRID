@@ -87,3 +87,8 @@ export interface TransferResponse {
   transfer: TransferView;
 }
 export * from './wallet-v2.js';
+export * from './transfer-history.js';
+export * from './settings.js';
+export * from './requests.js';
+export * from './workspace.js';
+export * from './notifications.js';

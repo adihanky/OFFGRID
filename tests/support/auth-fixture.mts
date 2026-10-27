@@ -13,13 +13,14 @@ import { AuthService } from '../../apps/api/src/modules/auth/auth.service.js';
 import { PasswordService, newToken } from '../../apps/api/src/modules/auth/auth.crypto.js';
 import { GoogleProvider } from '../../apps/api/src/modules/auth/google.provider.js';
 import type { ObjectId } from 'mongodb';
+import { fixtureMongoUri } from './test-database-target.mjs';
 
 export const testEnvironment = (overrides: Record<string, unknown> = {}) =>
   environmentSchema.parse({
     NODE_ENV: 'test',
     API_PORT: 3000,
     WEB_ORIGIN: 'http://localhost:5173',
-    MONGODB_URI: 'mongodb://127.0.0.1:27017/?replicaSet=rs0&directConnection=true',
+    MONGODB_URI: fixtureMongoUri(),
     MONGODB_DB: 'p2p_auth_unit',
     MONGODB_REPLICA_SET: 'rs0',
     SESSION_TTL_SECONDS: 604800,

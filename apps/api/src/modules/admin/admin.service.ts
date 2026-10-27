@@ -431,7 +431,11 @@ export class AdminService implements OnModuleInit {
       return { grants: result };
     });
   }
-  async setRole(actor: string, value: unknown) {
+  async setRole(
+    actor: string,
+    value: unknown,
+    onUpdated?: (session: ClientSession) => Promise<void>,
+  ) {
     const input = parseInput(
       z.strictObject({
         handle: z.string().regex(/^[a-z][a-z0-9_]{2,23}$/),
@@ -492,6 +496,7 @@ export class AdminService implements OnModuleInit {
         input.reason,
         session,
       );
+      await onUpdated?.(session);
       return { updated: true };
     });
   }

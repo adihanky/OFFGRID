@@ -2,6 +2,8 @@
 
 Authentication supports email/password registration and sign-in, Google OAuth 2.0 / OpenID Connect, current-user lookup, and sign-out. Both methods create opaque, revocable sessions persisted in MongoDB. The React client includes registration/sign-in forms, Google navigation, session restoration, and sign-out.
 
+[RecoveryModule](../apps/api/src/modules/auth/recovery.module.ts) adds owner session listing/revocation and a controlled reset/verification delivery boundary. **Live email delivery is disabled by user choice.** Reset eligibility requires a verified email and an existing password; provider-only identities keep their original sign-in method. [Recovery contracts](DEMO_ENHANCEMENTS.md#identity-recovery-and-sessions) define hashed expiring single-use tokens, concurrent-consumption fencing and transactional password replacement/session revocation. Automated cases use an isolated inbox, never external sign-in or real email delivery.
+
 ## Responsibilities and boundaries
 
 `AuthModule` is the identity/session boundary inside the NestJS modular monolith. It owns credential verification, provider identity resolution, session creation/revocation, authentication guards, authentication CSRF protection, and login throttling. Other feature modules resolve the caller through the exported `AuthGuard` or `AuthService` and enforce authorization for their own resources. Account balances, asset issuance, transfers, and chat belong to their respective modules.
