@@ -5,6 +5,7 @@ import {
   Inject,
   Injectable,
   NotFoundException,
+  Optional,
   type OnModuleInit,
 } from '@nestjs/common';
 import { createHash } from 'node:crypto';
@@ -19,6 +20,7 @@ import { formatQuantity, MAX_UNITS, MIN_UNITS, toLong, units } from './quantity.
 import { CustodyService } from '../custody/custody.service.js';
 import { BusinessRejection } from '../transfers/transfers.models.js';
 import type { WalletRecord } from '../wallets/wallets.models.js';
+import { PolicyReader, productPolicy } from '../configuration/policy-reader.js';
 
 export const TRANSACTION_OPTIONS = {
   readConcern: { level: 'snapshot' as const },
@@ -50,6 +52,7 @@ export class AccountsService implements OnModuleInit {
     @Inject(IdentityEligibility) readonly identities: IdentityEligibility,
     @Inject(LedgerService) readonly ledger: LedgerService,
     @Inject(CustodyService) readonly custody: CustodyService,
+    @Optional() @Inject(PolicyReader) readonly policies?: PolicyReader,
   ) {}
   get assets() {
     return this.database.db.collection<AssetRecord>('assetTypes', { promoteLongs: false });
@@ -169,6 +172,10 @@ export class AccountsService implements OnModuleInit {
       .createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'transfer_limit_expiry' });
   }
   async throttle(userId: string, action: string, limit: number) {
+    const policy = (await productPolicy(this.policies)).values;
+    if (['peer', 'v2-peer'].includes(action)) limit = policy.lookupPerMinute;
+    if (['read', 'v2-read'].includes(action)) limit = policy.readsPerMinute;
+    if (['submit', 'v2-review-submit'].includes(action)) limit = policy.admissionsPerMinute;
     const bucket = Math.floor(this.rateNow() / 60000);
     const _id = createHash('sha256').update(`${userId}:${action}:${bucket}`).digest('hex');
     const limits = this.database.db.collection<{ _id: string; hits: number; expiresAt: Date }>(

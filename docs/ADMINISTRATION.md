@@ -1,8 +1,12 @@
 # Demo wallet administration
 
-The [admin module](../apps/api/src/modules/admin/admin.module.ts) supplies Assets & issuance, Networks, Demo data, Access and Audit controls. Assets in this release are **Demo · simulated**. [Network/provider configuration and external ownership proof](NETWORKS.md) support ordinary EVM addresses on verified local/testnet networks. EVM balances/settlement and global lookup/finality policy editors remain pending.
+The [admin module](../apps/api/src/modules/admin/admin.module.ts) supplies Assets & issuance, Networks, Demo data, Access and Audit. The [enhancement boundaries](DEMO_ENHANCEMENTS.md) add Configuration, Requests and Operations with their own live role checks. Assets are **Demo · simulated**. [Network configuration and external ownership proof](NETWORKS.md) support ordinary EVM addresses on local/testnet networks. EVM settlement and finality-policy editing remain pending.
 
 The main navigation exposes Assets and Administration to all signed-in users. Users without ASSET_ADMIN see the access requirement and can still configure their own application wallet. Existing administrators use **Administration → Assets & issuance** or **Networks**; registration does not automatically grant administrative privileges.
+
+Administration is a dedicated workspace view. Administrator-account guidance is collapsed for existing administrators; **Admin account** opens this view and expands the guidance. Accounts without roles see the guidance expanded by default. The existing role-specific controls remain available within Administration. Loading and failure states include a retry action when the initial status request fails.
+
+Nested administrator destinations retain browser history and bookmarks. Configuration provides supported-key search, validation, reviewed publication, effective revision, conflict comparison and paginated history. Request approval uses the existing grant/issuance transaction and rejects self-approval. Auditors can run bounded read-only integrity jobs and inspect pending/notification backlog. See the [configuration and request contracts](DEMO_ENHANCEMENTS.md#supported-configuration).
 
 ## Authorization and setup
 

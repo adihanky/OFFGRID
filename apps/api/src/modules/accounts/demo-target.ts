@@ -13,10 +13,13 @@ export function assertDemoTarget(environment: {
   } catch {
     throw new Error('Demo fixtures require the local MongoDB instance.');
   }
+  const generatedTestDatabase = /^p2p_transfer_test_[a-f0-9]{32}$/.test(environment.MONGODB_DB);
+  const isolatedTestPort =
+    environment.NODE_ENV === 'test' && generatedTestDatabase && target.port === '27018';
   if (
     target.protocol !== 'mongodb:' ||
     !['127.0.0.1', 'localhost'].includes(target.hostname) ||
-    !['', '27017'].includes(target.port) ||
+    (!['', '27017'].includes(target.port) && !isolatedTestPort) ||
     target.username ||
     target.password ||
     !['', '/', `/${environment.MONGODB_DB}`].includes(target.pathname) ||
@@ -33,7 +36,7 @@ export function assertDemoTarget(environment: {
   }
   if (
     !['p2p_offgrid', 'p2p_offgrid_demo'].includes(environment.MONGODB_DB) &&
-    !/^p2p_transfer_test_[a-f0-9]{32}$/.test(environment.MONGODB_DB)
+    !generatedTestDatabase
   ) {
     throw new Error('Database is not allowlisted for demo fixtures.');
   }

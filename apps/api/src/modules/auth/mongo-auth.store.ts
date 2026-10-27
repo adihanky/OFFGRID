@@ -52,6 +52,7 @@ export class MongoAuthStore extends AuthStore implements OnModuleInit {
             createdAt: { bsonType: 'date' },
             updatedAt: { bsonType: 'date' },
             transferEligibilityRevision: { bsonType: 'long' },
+            recoveryRevision: { bsonType: 'long' },
           },
         },
       ],

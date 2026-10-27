@@ -13,6 +13,7 @@ import { WalletsService } from '../../apps/api/src/modules/wallets/wallets.servi
 import { CustodyService } from '../../apps/api/src/modules/custody/custody.service.js';
 interface V2World {
   v2?: TransferHarness;
+  v2CleanupStarted?: boolean;
   v2Alice?: TransferCaller;
   v2Bob?: TransferCaller;
   v2Carol?: TransferCaller;
@@ -25,24 +26,33 @@ interface V2World {
   v2Id?: string;
   v2ReviewStatuses?: number[];
 }
-Given('an isolated funded v2 transfer fixture', { timeout: 60000 }, async function (this: V2World) {
-  const h = (this.v2 = await createTransferHarness());
-  this.v2Alice = await h.register('v2_alice');
-  this.v2Bob = await h.register('v2_bob');
-  this.v2Carol = await h.register('v2_carol');
-  this.v2Asset = (
-    await h.accounts.createAsset({ code: 'V2DEMO', displayName: 'V2 demo', precision: 2 })
-  )._id.toHexString();
-  await h.issue(this.v2Alice, this.v2Asset, 1000n);
-  await h.request(this.v2Bob, '/api/auth/signout', 'POST');
-  this.v2Wallet = (await h.app.get(WalletsService).own(this.v2Alice.id)).id;
-  this.v2Resolution = await h.app.get(WalletsService).resolve(this.v2Alice.id, {
-    assetId: this.v2Asset,
-    senderWalletId: this.v2Wallet,
-    lookup: { kind: 'HANDLE', value: 'v2_bob' },
-  });
-  this.v2Key = randomUUID();
-});
+Given(
+  'an isolated funded v2 transfer fixture',
+  { timeout: 120000 },
+  async function (this: V2World) {
+    const h = await createTransferHarness();
+    if (this.v2CleanupStarted) {
+      await h.close();
+      throw new Error('V2 fixture completed after scenario cleanup.');
+    }
+    this.v2 = h;
+    this.v2Alice = await h.register('v2_alice');
+    this.v2Bob = await h.register('v2_bob');
+    this.v2Carol = await h.register('v2_carol');
+    this.v2Asset = (
+      await h.accounts.createAsset({ code: 'V2DEMO', displayName: 'V2 demo', precision: 2 })
+    )._id.toHexString();
+    await h.issue(this.v2Alice, this.v2Asset, 1000n);
+    await h.request(this.v2Bob, '/api/auth/signout', 'POST');
+    this.v2Wallet = (await h.app.get(WalletsService).own(this.v2Alice.id)).id;
+    this.v2Resolution = await h.app.get(WalletsService).resolve(this.v2Alice.id, {
+      assetId: this.v2Asset,
+      senderWalletId: this.v2Wallet,
+      lookup: { kind: 'HANDLE', value: 'v2_bob' },
+    });
+    this.v2Key = randomUUID();
+  },
+);
 function body(w: V2World, quantity = '3.25') {
   return {
     recipientResolutionId: w.v2Resolution!.resolutionId,
@@ -206,5 +216,6 @@ When('the v2 pending transfer is recovered', async function (this: V2World) {
   await confirm(this);
 });
 After(async function (this: V2World) {
+  this.v2CleanupStarted = true;
   await this.v2?.close();
 });

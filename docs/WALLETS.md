@@ -1,6 +1,6 @@
 # Application wallets
 
-The browser includes v2 wallet/send, explicit wallet setup, participant custody views, [administration](ADMINISTRATION.md) and [verified EVM address linking](NETWORKS.md) on configured local/testnet networks. Explicit offline legacy backfill preserves existing users. See the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md) for the complete target. Global policy editors, real blockchain balances/settlement and mainnet activation remain pending.
+The browser includes v2 wallet/send, explicit wallet setup, participant Activity/receipts and custody views, [administration](ADMINISTRATION.md), [supported product policies](DEMO_ENHANCEMENTS.md#supported-configuration) and [verified EVM address linking](NETWORKS.md) on configured local/testnet networks. Explicit offline legacy backfill preserves existing users. See the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md) for the complete target. Real blockchain balances/settlement and mainnet activation remain pending.
 
 ## Ownership and registration
 
@@ -11,6 +11,8 @@ The [schema initializer](../apps/api/src/modules/wallets/wallet-schema.ts) creat
 Auth uses a small persistence factory, not the Wallets Nest module. Wallets depends on the existing Auth and Accounts modules. Accounts remains the sole simulation balance store.
 
 ## Current v2 routes
+
+The signed-in frontend shows one task at a time: **Home**, **Wallet**, **Send**, **Activity**, **Settings**, **Assets**, **Help** or **Administration**. Security and Notifications have nested destinations. Active navigation uses `aria-current`; heading bookmarks, Back/Forward and reload remain supported. Unknown fragments return Home. Inactive panels remain mounted, and configuration revisions refresh data without remounting another task's draft. Identity-scoped editable drafts survive reload and are cleared on sign-out/account switch. Admitted work is independently discoverable from server Activity. See [navigation scenarios](../tests/features/workspace-navigation.feature) and [consumer contracts](DEMO_ENHANCEMENTS.md#activity-and-recoverable-work).
 
 Every signed-in user has visible navigation to **Set up wallet**, **Assets** and **Administration**. `POST /api/v2/wallet/settings` saves `{displayName,preferredAssetId,revision}` for the session owner's active wallet. Preferences have their own optimistic configuration revision and persist without issuing value, creating another wallet or changing public peer identity. A preferred asset must be active; an empty choice is null. The browser uses it as the initial send selection. Existing wallet records remain valid with default preferences until explicitly configured.
 
@@ -25,7 +27,7 @@ All routes require an authenticated active session and return `Cache-Control: no
 | `POST /api/v2/transfers`        | Reviewed simulated send with `Idempotency-Key`; pins server-resolved wallet IDs and requires a custody-enabled asset. Returns 201/200 committed, 202 pending, or 422 durable business rejection.                                              |
 | `GET /api/v2/transfers/:id`     | Authorized outcome and original payload version; sender sees pending/rejected outcomes, recipient sees committed outcomes, strangers receive 404.                                                                                             |
 
-Resolutions expire after 120 seconds, are caller scoped and retain wallet and asset revisions. Application code checks expiry independently of TTL cleanup. Wallet suspension and asset pause/revision changes invalidate unsubmitted review. Recipient login status has no bearing on lookup. Responses include only public identity, wallet ID, mode and revision snapshots. Current limits are 120 resolutions, 60 new transfers and 240 wallet/outcome reads per caller per minute. Persisted configurable policies remain a later package.
+Resolutions default to 120 seconds, are caller scoped and retain wallet, asset and product-policy revisions. Code checks expiry independently of TTL cleanup. Wallet suspension, asset changes and product-policy publication invalidate an unsubmitted review. Recipient login status has no bearing on lookup. Default limits remain 120 resolutions, 60 new submissions and 240 wallet/outcome reads per caller/minute; authorized [configuration publication](DEMO_ENHANCEMENTS.md#supported-configuration) changes supported bounds. Admission and terminal-replay identities remain unchanged.
 
 V2 accepts `{recipientResolutionId,senderWalletId,assetId,quantity}` and uses the existing atomic executor with wallet fences and custody writes. Durable requests retain reviewed IDs and canonical quantities. Terminal replays survive review expiry; changed content and cross-version key reuse return 409. Existing v1 hashes and IDs remain unchanged. Recovery processes both versions independently of session expiry. The browser creates v2 intents and can recover a previously stored v1 intent using its original route/key. It clears identity-scoped storage on signout/account switch, validates returned wallet IDs, and returns expired/unavailable reviews to an editable form. A resolution alone never transfers value.
 

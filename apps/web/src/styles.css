@@ -393,8 +393,42 @@ button:disabled {
 .primary-navigation {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
   margin: 0 0 18px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #dce1d9;
+}
+.primary-navigation a[aria-current='page'] {
+  background: #183f36;
+  border-color: #183f36;
+  color: white;
+}
+.primary-navigation .admin-account-link {
+  margin-left: auto;
+  background: transparent;
+  border-color: transparent;
+  text-decoration: underline;
+}
+.workspace-content {
+  min-width: 0;
+}
+.workspace-content:focus {
+  outline: none;
+}
+.workspace-content > [hidden] {
+  display: none;
+}
+.signed-in .wallet-section {
+  margin-bottom: 0;
+}
+.signed-in .wallet-heading h2 {
+  margin: 8px 0 16px;
+}
+.signed-in .account-summary {
+  padding: 16px 20px;
+}
+.administrator-entry[open] summary {
+  margin-bottom: 16px;
 }
 .primary-navigation a {
   color: #183f36;
@@ -489,6 +523,21 @@ button:disabled {
   padding: 12px 24px;
 }
 @media (max-width: 540px) {
+  .primary-navigation {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .primary-navigation a {
+    text-align: center;
+    padding: 12px 8px;
+  }
+  .primary-navigation .admin-account-link {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+  .signed-in .auth-layout {
+    margin: 20px 0;
+  }
   .account-summary {
     align-items: stretch;
     flex-direction: column;
@@ -667,4 +716,27 @@ button:disabled {
   article p {
     min-height: auto;
   }
+}
+[hidden] {
+  display: none !important;
+}
+.history-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.admin-form input[type='checkbox'] {
+  width: auto;
+  display: inline-block;
+  margin: 0 12px;
+}
+.wallet-section,
+.admin-form,
+.workspace-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+button,
+a {
+  touch-action: manipulation;
 }

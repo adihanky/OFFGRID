@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Inject, Injectable, type OnModuleInit } from '@nestjs/common';
+import { verificationRows } from '../ledger/verification-budget.js';
 import { ObjectId, type ClientSession, type Long } from 'mongodb';
 import { DatabaseService } from '../../database/database.service.js';
 import { collectionSchema, date, long, oid, text } from '../accounts/schema.js';
@@ -346,23 +347,34 @@ export class CustodyService implements OnModuleInit {
       { session },
     );
   }
-  async verify() {
+  async verify(maximum?: number) {
     const session = this.database.client.startSession();
     const issues: string[] = [];
     try {
       await session.withTransaction(
         async () => {
           issues.length = 0;
-          const lots = await this.lots.find({}, { session }).sort({ _id: 1 }).toArray();
-          const events = await this.events.find({}, { session }).sort({ sequence: 1 }).toArray();
-          const edges = await this.edges.find({}, { session }).sort({ _id: 1 }).toArray();
-          const heads = await this.heads.find({}, { session }).toArray();
+          const lots = await verificationRows(
+            this.lots.find({}, { session }).sort({ _id: 1 }),
+            maximum,
+          );
+          const events = await verificationRows(
+            this.events.find({}, { session }).sort({ sequence: 1 }),
+            maximum,
+          );
+          const edges = await verificationRows(
+            this.edges.find({}, { session }).sort({ _id: 1 }),
+            maximum,
+          );
+          const heads = await verificationRows(this.heads.find({}, { session }), maximum);
           const accountsById = new Map(
             (
-              await this.database.db
-                .collection('accounts', { promoteLongs: false })
-                .find({}, { session })
-                .toArray()
+              await verificationRows(
+                this.database.db
+                  .collection('accounts', { promoteLongs: false })
+                  .find({}, { session }),
+                maximum,
+              )
             ).map((a) => [a._id.toHexString(), a]),
           );
           for (const head of heads) {
@@ -524,10 +536,12 @@ export class CustodyService implements OnModuleInit {
           for (const edge of edges)
             if (!events.some((e) => e._id.equals(edge.eventId)))
               issues.push(`Custody edge orphan ${edge._id}`);
-          const accounts = await this.database.db
-            .collection('accounts', { promoteLongs: false })
-            .find({ ownerType: 'user', walletId: { $exists: true } }, { session })
-            .toArray();
+          const accounts = await verificationRows(
+            this.database.db
+              .collection('accounts', { promoteLongs: false })
+              .find({ ownerType: 'user', walletId: { $exists: true } }, { session }),
+            maximum,
+          );
           for (const account of accounts) {
             const asset = await this.database.db
               .collection('assetTypes')

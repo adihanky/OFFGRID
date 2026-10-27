@@ -1,7 +1,9 @@
 # Secure P2P Asset Transfer System — High-Level Design
 
-Status: Approved by the user on 24 October 2026. Project foundation, authentication, and Wallet and Transfer implemented; automated verification and remaining evidence gaps are recorded in the module QA map and handover. History screens and chat remain pending.
+Status: Approved baseline, 24 October 2026. Additive core demo implementation is documented in [core enhancements](DEMO_ENHANCEMENTS.md), with current test/live evidence in [onboarding](../onboarding.md). Chat and real EVM settlement remain separate work. The original sections below retain the approved foundation and settlement invariants.
 Date: 24 October 2026
+
+Product planning follow-up, 26 October 2026: the proposed [business/API enhancement HLD](BUSINESS_API_ENHANCEMENT_HLD.md) records source and exact-service evidence, remaining business gaps, additive API/configuration design and rollout boundaries. The [consumer experience plan](CONSUMER_EXPERIENCE_PLAN.md) defines complete journeys and safe exits; the [delivery plan](ENHANCEMENT_DELIVERY_PLAN.md) supplies sequential agent packages and acceptance gates. These extend the target without changing the settlement invariants below. Participant custody activity exists today; full filtered transfer history, pending/rejected discovery, transfer-chain screens and chat remain distinct unfinished capabilities.
 
 Design follow-up, 25 October 2026: the requested [wallet/asset overhaul HLD](WALLET_ASSET_OVERHAUL_HLD.md) and [LLD](WALLET_ASSET_OVERHAUL_LLD.md) propose UI administration, explicit user wallets, demo custody and a separate real ERC-20 settlement path. For future overhaul work they replace the wallet scope below; this document continues to describe the existing simulation architecture. Application-wallet preferences, external EOA ownership proofs and read-only local/testnet network verification are implemented; see [networks](NETWORKS.md). Blockchain payment settlement and mainnet activation have not occurred. Peers are registered recipients with valid wallets, independent of login status.
 

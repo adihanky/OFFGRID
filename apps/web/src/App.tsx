@@ -1,35 +1,48 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AuthUser, ReadinessResponse } from '@p2p/contracts';
 import { AuthPanel } from './AuthPanel';
-import { WalletPanel } from './WalletPanel';
 import { browserIntentStorage, clearIntentOnSessionChange } from './transfer-client';
-import { AdminPanel } from './AdminPanel';
 import { clearWalletIntent, restoreWalletIntent } from './wallet-v2-client';
-import { WalletSetupPanel } from './WalletSetupPanel';
-import { AssetCataloguePanel } from './AssetCataloguePanel';
+import { clearSendDraft } from './send-draft';
+import { UserWorkspace } from './UserWorkspace';
+import { PasswordRecoveryPanel } from './SecurityPanel';
 
 const modules = [
   ['01', 'Authentication', 'Your identity and secure access.'],
   ['02', 'Wallet and transfers', 'View your balances and send simulated assets to a peer.'],
-  ['03', 'Transfer chain', 'Follow the verified history of each transfer.'],
+  ['03', 'Activity and receipts', 'Find original outcomes and authorized transfer evidence.'],
   ['04', 'Peer chat', 'Keep conversations close to your transfers.'],
 ] as const;
 
 export function App() {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [workspaceVersion, setWorkspaceVersion] = useState(0);
+  const [fragment, setFragment] = useState(() => window.location.hash);
+  const [authNotice, setAuthNotice] = useState('');
+  const recoveryActive = /^#\/recover(?:\?|$)/.test(fragment);
   const currentUserId = useRef<string | null>(null);
   const onUserChange = useCallback((next: AuthUser | null) => {
-    if (!next || (currentUserId.current !== null && currentUserId.current !== next.id))
+    const previous = currentUserId.current;
+    if (!next || (previous !== null && previous !== next.id)) {
       clearWalletIntent();
-    else restoreWalletIntent(next.id);
+      clearSendDraft();
+    } else restoreWalletIntent(next.id);
     clearIntentOnSessionChange(browserIntentStorage, currentUserId.current, next?.id ?? null);
     currentUserId.current = next?.id ?? null;
+    if (!next && (previous !== null || !/^#\/recover(?:\?|$)/.test(window.location.hash))) {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      setFragment('');
+    }
+    if (next) setAuthNotice('');
     setUser(next);
   }, []);
   const onSessionExpired = useCallback(() => onUserChange(null), [onUserChange]);
-  const onWorkspaceChanged = useCallback(() => setWorkspaceVersion((version) => version + 1), []);
   const [status, setStatus] = useState<'checking' | 'ready' | 'unavailable'>('checking');
+
+  useEffect(() => {
+    const navigate = () => setFragment(window.location.hash);
+    window.addEventListener('hashchange', navigate);
+    return () => window.removeEventListener('hashchange', navigate);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -55,7 +68,7 @@ export function App() {
   return (
     <main className={`workspace${user ? ' signed-in' : ''}`}>
       <header>
-        <a className="brand" href="/" aria-label="Secure P2P home">
+        <a className="brand" href={user ? '#/home' : '#/signin'} aria-label="Secure P2P home">
           <span className="brand-mark" aria-hidden="true">
             P
           </span>
@@ -65,7 +78,7 @@ export function App() {
           {user ? 'Demo asset workspace' : 'Your next connection starts here'}
         </span>
       </header>
-      <div className="auth-layout">
+      <div className="auth-layout" hidden={recoveryActive}>
         <section className="intro" aria-labelledby="intro-title">
           <p className="eyebrow">PEER TO PEER / BUILT ON TRUST</p>
           <h1 id="intro-title">
@@ -87,51 +100,41 @@ export function App() {
         </section>
         <AuthPanel user={user} onUserChange={onUserChange} />
       </div>
-      {user && (
-        <>
-          <nav className="primary-navigation" aria-label="Workspace navigation">
-            <a href="#wallet-title">Wallet & send</a>
-            <a href="#wallet-setup-title">Set up wallet</a>
-            <a href="#asset-catalogue-title">Assets</a>
-            <a href="#administration-title">Administration</a>
-            <a href="#admin-account-title">Admin account</a>
-          </nav>
-          <WalletPanel
-            key={`${user.id}:${workspaceVersion}`}
-            user={user}
-            onSessionExpired={onSessionExpired}
-          />
-          <WalletSetupPanel
-            key={`setup:${user.id}:${workspaceVersion}`}
-            user={user}
-            onChanged={onWorkspaceChanged}
-            onSessionExpired={onSessionExpired}
-          />
-          <AssetCataloguePanel
-            key={`assets:${user.id}:${workspaceVersion}`}
-            onSessionExpired={onSessionExpired}
-          />
-          <AdminPanel
-            key={user.id}
-            user={user}
-            onChanged={onWorkspaceChanged}
-            onSessionExpired={onSessionExpired}
-          />
-        </>
+      {authNotice && <p role="status">{authNotice}</p>}
+      {recoveryActive && (
+        <PasswordRecoveryPanel
+          active
+          onResetComplete={() => {
+            onUserChange(null);
+            setAuthNotice(
+              'Password updated. Previous sessions were revoked. Sign in with your new password.',
+            );
+            window.location.hash = '#/signin';
+          }}
+        />
       )}
-      <section className="modules" aria-label="Application modules">
-        {modules.map(([number, title, description]) => (
-          <article key={number}>
-            <span className="module-number">{number}</span>
-            <h2>{title}</h2>
-            <p>{description}</p>
-            <span className="module-state">
-              {number === '01' || number === '02' ? 'Available' : 'Planned'}
-            </span>
-          </article>
-        ))}
-      </section>
-      <footer>Development scaffold · Simulated assets</footer>
+      {user && !recoveryActive && (
+        <UserWorkspace
+          key={user.id}
+          user={user}
+          fragment={fragment}
+          onSessionExpired={onSessionExpired}
+          onIdentityChanged={onUserChange}
+        />
+      )}
+      {!user && !recoveryActive && (
+        <section className="modules" aria-label="Application modules">
+          {modules.map(([number, title, description]) => (
+            <article key={number}>
+              <span className="module-number">{number}</span>
+              <h2>{title}</h2>
+              <p>{description}</p>
+              <span className="module-state">{number === '04' ? 'Planned' : 'Available'}</span>
+            </article>
+          ))}
+        </section>
+      )}
+      <footer>Secure P2P · Simulated assets</footer>
     </main>
   );
 }

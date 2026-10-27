@@ -1,6 +1,6 @@
 # Transfer chain architecture
 
-`apps/api/src/modules/chain/chain.service.ts` implements a per-asset hash-linked audit history. ChainModule exports ChainService to Transfers; Accounts creates genesis heads and coordinates asset eligibility. The chain is an audit structure, not decentralized consensus. There is no public chain endpoint in this slice.
+`apps/api/src/modules/chain/chain.service.ts` implements a per-asset hash-linked audit history. ChainModule exports ChainService to Transfers; Accounts creates genesis heads and coordinates asset eligibility. The chain is an audit structure, not decentralized consensus. [Participant evidence](DEMO_ENHANCEMENTS.md#activity-and-recoverable-work) is available through `GET /api/v2/transfers/:id/chain`; the projection omits account IDs and unrelated predecessor transfers. Full verification remains an internal service or authorized bounded read-only job.
 
 `chainHeads` has unique assetId, nonnegative BSON Long latestSequence, latestHash and transfersEnabled. Genesis is sequence zero and 64 zero hex characters. `chainEntries` requires assetId, positive Long sequence, transferId, previousHash, entryHash, canonicalVersion 1, canonicalPayload and createdAt; unique asset/sequence and transferId indexes prevent duplicate appends. No TTL or mutation API exists. Initializers apply strict validators and fail incompatible data.
 

@@ -86,9 +86,9 @@ Given(
       'globalThis.ethereum = { request: function(input) { return globalThis.controlledWalletRequest(input); } };',
     );
     this.setupBrowser = { f, browser, web, page, errors };
-    await page.goto(url);
+    await page.goto(role === 'asset administrator' ? `${url}/#/send` : url);
     if (role === 'asset administrator')
-      await page.getByRole('heading', { name: 'Your wallet', exact: true }).waitFor();
+      await page.getByRole('heading', { name: 'Send demo units', exact: true }).waitFor();
   },
 );
 When(
@@ -101,9 +101,9 @@ When(
     await page.getByLabel('Public handle', { exact: true }).fill('setup_browser');
     await page.getByLabel('Password', { exact: true }).fill('Controlled-setup-browser-pass-2026');
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
-    await page.getByRole('link', { name: 'Set up wallet', exact: true }).click();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await page.getByRole('heading', { name: 'Set up your wallet', exact: true }).waitFor();
-    assert.match(page.url(), /#wallet-setup-title$/);
+    assert.match(page.url(), /#\/settings$/);
   },
 );
 When(
@@ -160,7 +160,7 @@ When(
   async function (this: SetupBrowserWorld) {
     const page = this.setupBrowser!.page;
     await page.getByRole('link', { name: 'Assets', exact: true }).click();
-    await page.getByRole('link', { name: 'Configure assets', exact: true }).click();
+    await page.getByRole('link', { name: 'Manage assets', exact: true }).click();
     await page.getByRole('button', { name: 'Assets & issuance', exact: true }).click();
     for (const [label, value] of [
       ['Asset code', 'UICFG'],
@@ -229,9 +229,11 @@ Then(
         .countDocuments({ chainId: '31338', status: 'ACTIVE' }),
       1,
     );
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await page
       .getByLabel('Wallet network')
       .selectOption({ label: 'Browser configured EVM · local · chain 31338' });
+    await page.getByRole('link', { name: 'Administration', exact: true }).click();
     await page
       .getByRole('button', { name: 'Manage network Browser configured EVM', exact: true })
       .click();
@@ -240,6 +242,7 @@ Then(
     await page.getByLabel('Network change reason').fill('Update provider display policy');
     await page.getByRole('button', { name: 'Verify & save network', exact: true }).click();
     await page.getByRole('button', { name: 'Verify & add network', exact: true }).waitFor();
+    await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await page
       .getByLabel('Wallet network')
       .selectOption({ label: 'Renamed browser EVM · local · chain 31338' });
@@ -275,7 +278,13 @@ Then(
       .getByText('No EVM wallet was detected.', { exact: false })
       .waitFor();
     await page.getByText('Use a manually signed ownership message', { exact: true }).waitFor();
-    await page.getByRole('link', { name: 'Configure assets', exact: true }).click();
+    await page.getByRole('link', { name: 'Assets', exact: true }).click();
+    await page.getByRole('link', { name: 'Request asset access', exact: true }).click();
+    await page.getByRole('heading', { name: 'Help', exact: true }).waitFor();
+    await page
+      .getByRole('navigation', { name: 'Workspace navigation' })
+      .getByRole('link', { name: 'Administration', exact: true })
+      .click();
     await page
       .getByText('Asset and network configuration requires an ASSET_ADMIN grant.', { exact: false })
       .waitFor();
@@ -295,9 +304,7 @@ When(
     await page.getByLabel('Password', { exact: true }).fill('Controlled-admin-browser-pass-2026');
     await page.getByRole('button', { name: 'Create account', exact: true }).click();
     await page.getByRole('link', { name: 'Admin account', exact: true }).click();
-    await page
-      .getByRole('heading', { name: 'Set up administrator account', exact: true })
-      .waitFor();
+    await page.locator('details[open] > #admin-account-title').waitFor();
   },
 );
 When(
@@ -322,9 +329,12 @@ Then(
   { timeout: 30000 },
   async function (this: SetupBrowserWorld) {
     const { page, f } = this.setupBrowser!;
+    const identity = await page.request.get(`${new URL(page.url()).origin}/api/auth/me`);
+    assert.equal(identity.status(), 200);
+    const current = (await identity.json()) as { user: { id: string } };
     const user = await f.h.database.db
       .collection('users')
-      .findOne({ normalizedEmail: 'admin_browser@example.invalid' });
+      .findOne({ _id: new ObjectId(current.user.id) });
     assert.ok(user);
     assert.equal(
       await f.h.database.db
@@ -355,6 +365,7 @@ Then(
     await page.getByLabel('Email', { exact: true }).fill('admin_browser@example.invalid');
     await page.getByLabel('Password', { exact: true }).fill('Controlled-admin-browser-pass-2026');
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await page.getByRole('link', { name: 'Admin account', exact: true }).click();
     await page.getByText('Your administrator access is active.', { exact: false }).waitFor();
     await page.getByRole('button', { name: 'Assets & issuance', exact: true }).waitFor();
   },
@@ -373,9 +384,12 @@ Then(
         .count(),
       0,
     );
+    const identity = await page.request.get(`${new URL(page.url()).origin}/api/auth/me`);
+    assert.equal(identity.status(), 200);
+    const current = (await identity.json()) as { user: { id: string } };
     const user = await f.h.database.db
       .collection('users')
-      .findOne({ normalizedEmail: 'admin_browser@example.invalid' });
+      .findOne({ _id: new ObjectId(current.user.id) });
     assert.ok(user);
     assert.equal(
       await f.h.database.db.collection('roleGrants').countDocuments({ userId: user._id }),

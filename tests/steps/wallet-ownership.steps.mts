@@ -14,6 +14,7 @@ import { toLong } from '../../apps/api/src/modules/accounts/quantity.js';
 
 interface WalletWorld {
   ownershipHarness?: TransferHarness;
+  ownershipCleanupStarted?: boolean;
   ownerAlice?: TransferCaller;
   ownerBob?: TransferCaller;
   aliceWallet?: string;
@@ -30,9 +31,14 @@ interface WalletWorld {
 }
 Given(
   'an isolated application wallet fixture',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async function (this: WalletWorld) {
-    this.ownershipHarness = await createTransferHarness();
+    const harness = await createTransferHarness();
+    if (this.ownershipCleanupStarted) {
+      await harness.close();
+      throw new Error('Ownership fixture completed after scenario cleanup.');
+    }
+    this.ownershipHarness = harness;
   },
 );
 When('a new user registers through the application', async function (this: WalletWorld) {
@@ -253,6 +259,7 @@ Then(
   },
 );
 After(async function (this: WalletWorld) {
+  this.ownershipCleanupStarted = true;
   await this.ownershipHarness?.close();
 });
 When('an auditor grant is added then revoked for the sender', async function (this: WalletWorld) {

@@ -126,6 +126,10 @@ export function AuthPanel({
           <button className="primary-button" disabled={busy} onClick={() => void signOut()}>
             {busy ? 'Signing out...' : 'Sign out'}
           </button>
+          <small>
+            Signing out clears this tab’s editable draft. Submitted transfers remain recoverable in
+            Activity.
+          </small>
         </>
       ) : (
         <>
@@ -133,6 +137,11 @@ export function AuthPanel({
           <h2 id="auth-title">
             {mode === 'signin' ? 'Sign in to your account' : 'Create your account'}
           </h2>
+          {mode === 'signin' && (
+            <p>
+              <a href="#/recover">Recover account access</a>
+            </p>
+          )}
           {googleEnabled ? (
             <a className="google-button" href="/api/auth/google">
               Continue with Google

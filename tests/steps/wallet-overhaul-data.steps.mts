@@ -14,6 +14,7 @@ import { transferUnitFixture } from '../support/transfer-unit-fixture.mjs';
 
 interface AssessmentWorld {
   assessmentHarness?: TransferHarness;
+  assessmentCleanupStarted?: boolean;
   assessment?: MigrationAssessment;
   assessmentSnapshot?: string;
   overhaulBody?: unknown;
@@ -36,9 +37,14 @@ async function dump(h: TransferHarness) {
 }
 Given(
   'an isolated legacy wallet assessment fixture',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async function (this: AssessmentWorld) {
-    const h = (this.assessmentHarness = await createTransferHarness());
+    const h = await createTransferHarness();
+    if (this.assessmentCleanupStarted) {
+      await h.close();
+      throw new Error('Assessment fixture completed after scenario cleanup.');
+    }
+    this.assessmentHarness = h;
     const alice = await h.register('assess_alice');
     const asset = await h.accounts.createAsset({
       code: 'ASSESS',
@@ -143,5 +149,6 @@ Then('the overhaul request is rejected before persistence', function (this: Asse
   assert.ok(this.overhaulError);
 });
 After(async function (this: AssessmentWorld) {
+  this.assessmentCleanupStarted = true;
   await this.assessmentHarness?.close();
 });

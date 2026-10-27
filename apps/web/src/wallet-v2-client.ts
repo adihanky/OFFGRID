@@ -76,7 +76,13 @@ export async function walletWrite<T>(
   userId: string,
   path: string,
   body: unknown,
-  options: { key?: string; revision?: string; signal?: AbortSignal; timeout?: number } = {},
+  options: {
+    key?: string;
+    revision?: string;
+    signal?: AbortSignal;
+    timeout?: number;
+    method?: 'POST' | 'PATCH';
+  } = {},
 ): Promise<T> {
   const signal = options.signal;
   const { csrfToken } = await walletRequest<{ csrfToken: string }>('auth/csrf', { signal });
@@ -85,7 +91,7 @@ export async function walletWrite<T>(
   return walletRequest<T>(
     path,
     {
-      method: 'POST',
+      method: options.method ?? 'POST',
       signal,
       headers: {
         'Content-Type': 'application/json',
