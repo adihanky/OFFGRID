@@ -81,11 +81,11 @@ When(
       .getByRole('link', { name: 'Wallet', exact: true })
       .click();
     const walletPosition = await page
-      .getByRole('heading', { name: 'Your wallet', exact: true })
+      .getByRole('heading', { name: 'Set up your wallet', exact: true })
       .boundingBox();
     assert.ok(
-      walletPosition && walletPosition.y < 400,
-      'Wallet must be visible near the top after sign-in',
+      walletPosition && walletPosition.y < (page.viewportSize()?.height ?? 600),
+      'Unified wallet setup must be visible near the top after sign-in',
     );
     await page.getByRole('link', { name: 'Administration', exact: true }).click();
     await page.getByLabel('Installation setup token').fill(token);

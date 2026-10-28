@@ -1,5 +1,5 @@
 import { lookup } from 'node:dns/promises';
-import { request as httpsRequest } from 'node:https';
+import { request as httpsRequest, Agent as HttpsAgent } from 'node:https';
 import { request as httpRequest } from 'node:http';
 import { isIP } from 'node:net';
 import { randomUUID } from 'node:crypto';
@@ -8,7 +8,16 @@ import type { Environment } from '../../config/environment.js';
 import { assertDemoTarget } from '../accounts/demo-target.js';
 
 export const RPC_TRANSPORT = Symbol('RPC_TRANSPORT');
-export type RpcMethod = 'eth_chainId' | 'eth_getBlockByNumber' | 'eth_getCode';
+export type RpcMethod =
+  | 'eth_chainId'
+  | 'eth_getBlockByNumber'
+  | 'eth_getCode'
+  | 'eth_getBalance'
+  | 'eth_call'
+  | 'eth_getLogs'
+  | 'eth_blockNumber'
+  | 'eth_getTransactionByHash'
+  | 'eth_getTransactionReceipt';
 export type RpcTransport = (
   url: URL,
   method: RpcMethod,
@@ -70,40 +79,60 @@ export function rpcUrl(value: string, environment: Environment, local: boolean):
   }
   return url;
 }
-/** Pins the validated DNS result, limits responses, and never follows redirects. */
+/** Only fixed public providers may delegate DNS to an explicitly configured trusted egress proxy.
+ * Custom destinations retain direct DNS validation and address pinning. */
+export function useTrustedProxy(url: URL, local: boolean, proxyPresent: boolean) {
+  return (
+    !local &&
+    proxyPresent &&
+    url.protocol === 'https:' &&
+    ['ethereum-sepolia-rpc.publicnode.com', 'sepolia.drpc.org'].includes(url.hostname)
+  );
+}
+/** Pins direct DNS results (or uses the trusted proxy), bounds responses and refuses redirects. */
 export const rpcTransport: RpcTransport = async (url, method, params, local) => {
   const deadline = AbortSignal.timeout(5000);
+  const proxied = useTrustedProxy(
+    url,
+    local,
+    Boolean(process.env.HTTPS_PROXY || process.env.https_proxy),
+  );
   let addresses;
   try {
-    addresses = local
-      ? [{ address: '127.0.0.1', family: 4 }]
-      : await Promise.race([
-          lookup(url.hostname, { all: true }),
-          new Promise<never>((_resolve, reject) =>
-            deadline.addEventListener('abort', () => reject(new Error('RPC lookup timeout')), {
-              once: true,
-            }),
-          ),
-        ]);
+    addresses =
+      local || proxied
+        ? [{ address: '127.0.0.1', family: 4 }]
+        : await Promise.race([
+            lookup(url.hostname, { all: true }),
+            new Promise<never>((_resolve, reject) =>
+              deadline.addEventListener('abort', () => reject(new Error('RPC lookup timeout')), {
+                once: true,
+              }),
+            ),
+          ]);
   } catch {
     throw new ServiceUnavailableException('Network provider DNS is unavailable.');
   }
-  if (!addresses.length || (!local && addresses.some((entry) => !publicAddress(entry.address))))
+  if (
+    !addresses.length ||
+    (!local && !proxied && addresses.some((entry) => !publicAddress(entry.address)))
+  )
     throw new BadRequestException('RPC resolved to an unavailable address.');
   const target = addresses.find((entry) => entry.family === 4) ?? addresses[0]!;
   const id = randomUUID();
   const body = JSON.stringify({ jsonrpc: '2.0', id, method, params });
+  const agent = proxied ? new HttpsAgent({ proxyEnv: process.env, keepAlive: false }) : undefined;
   try {
     return await new Promise<unknown>((resolve, reject) => {
       const request = (url.protocol === 'https:' ? httpsRequest : httpRequest)(
         {
-          hostname: target.address,
+          hostname: proxied ? url.hostname : target.address,
           family: target.family,
           servername: url.hostname,
           port: url.port || (local ? 80 : 443),
           path: '/',
           method: 'POST',
-          agent: false,
+          agent: agent ?? false,
           signal: deadline,
           headers: {
             Host: url.host,
@@ -116,7 +145,11 @@ export const rpcTransport: RpcTransport = async (url, method, params, local) => 
           let bytes = 0;
           response.on('data', (chunk: Buffer) => {
             bytes += chunk.length;
-            if (bytes > 65536) response.destroy(new Error('RPC response limit'));
+            if (
+              bytes >
+              (['eth_getBlockByNumber', 'eth_getLogs'].includes(method) ? 4 * 1024 * 1024 : 65536)
+            )
+              response.destroy(new Error('RPC response limit'));
             else buffers.push(chunk);
           });
           response.on('error', reject);
@@ -144,6 +177,10 @@ export const rpcTransport: RpcTransport = async (url, method, params, local) => 
       request.end(body);
     });
   } catch {
-    throw new ServiceUnavailableException('Network provider is unavailable. No wallet was linked.');
+    throw new ServiceUnavailableException(
+      'Network provider is unavailable. Check RPC access and retry.',
+    );
+  } finally {
+    agent?.destroy();
   }
 };

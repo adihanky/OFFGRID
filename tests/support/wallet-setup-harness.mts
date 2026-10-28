@@ -6,7 +6,12 @@ import { AdminService } from '../../apps/api/src/modules/admin/admin.service.js'
 import type { WalletNetwork } from '@p2p/contracts';
 export const setupFixtureToken = 'wallet-setup-controlled-token-32-characters';
 export async function createWalletSetupHarness() {
-  const state = { chainId: '0x7a69', genesisHash: `0x${'12'.repeat(32)}`, contract: false };
+  const state = {
+    chainId: '0x7a69',
+    genesisHash: `0x${'12'.repeat(32)}`,
+    contract: false,
+    balance: '0xde0b6b3a7640001',
+  };
   const rpc = createServer((request, response) => {
     let text = '';
     request.on('data', (data) => {
@@ -15,13 +20,15 @@ export async function createWalletSetupHarness() {
     request.on('end', () => {
       const message = JSON.parse(text) as { id: string; method: string };
       const result =
-        message.method === 'eth_chainId'
-          ? state.chainId
-          : message.method === 'eth_getBlockByNumber'
-            ? { hash: state.genesisHash }
-            : state.contract
-              ? '0x6000'
-              : '0x';
+        message.method === 'eth_getBalance'
+          ? state.balance
+          : message.method === 'eth_chainId'
+            ? state.chainId
+            : message.method === 'eth_getBlockByNumber'
+              ? { hash: state.genesisHash }
+              : state.contract
+                ? '0x6000'
+                : '0x';
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify({ jsonrpc: '2.0', id: message.id, result }));
     });

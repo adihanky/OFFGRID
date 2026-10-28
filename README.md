@@ -1,5 +1,7 @@
 # Secure P2P Asset Transfer System
 
+The [unified testnet wallet](docs/TESTNET_WALLET.md) connects Sepolia setup, ownership verification, native ETH/ERC-20 balances, faucet funding, wallet-approved sending and indexed chain receipts. Existing simulated assets remain available as legacy demo data.
+
 A TypeScript workspace for a server-coordinated simulation of peer-to-peer asset transfers, with MongoDB persistence, a transfer audit chain, and direct chat.
 
 The implementation includes authentication, wallets, atomic demo transfers, participant Activity/receipts, pending discovery, consumer tasks, typed configuration, tracked administrator requests, session security, notifications and read-only verification jobs. [Core demo enhancements](docs/DEMO_ENHANCEMENTS.md) describes the P00–P08 boundaries; current test and live-delivery evidence is in [onboarding.md](onboarding.md). Live recovery email is disabled by user choice. EVM settlement, a global chain explorer and chat remain later work.

@@ -1,6 +1,6 @@
 # EVM network configuration and ownership proofs
 
-The [network module](../apps/api/src/modules/networks/networks.service.ts) provides verified local/testnet network identities for external-address linking. It does not enable ERC-20 payments, balances, finality observation or mainnet activation. The complete settlement target remains in the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md).
+The [network module](../apps/api/src/modules/networks/networks.service.ts) provides verified local/testnet network identities for external-address linking. The [unified testnet wallet](TESTNET_WALLET.md) adds a self-service Sepolia preset, native ETH balance reads and browser-wallet payments. ERC-20 payments and receipt/event indexing are described in that design. Mainnet remains unavailable. The complete settlement target remains in the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md).
 
 ## Configuration and trust boundary
 
@@ -8,7 +8,7 @@ An ASSET_ADMIN uses **Administration → Networks** to add a display name, expec
 
 Only the supported testnet IDs in source and guarded local targets are accepted. Public HTTPS hosts must occur in server `EVM_RPC_ALLOWED_HOSTS`; defaults include `sepolia.drpc.org` and `ethereum-sepolia-rpc.publicnode.com`. RPC credentials, URL paths, query strings and fragments are rejected; providers requiring API keys are not supported by this implementation. No secret is returned to the browser. Local HTTP is limited to loopback on the existing development/test database guard.
 
-The [transport](../apps/api/src/modules/networks/rpc.ts) resolves approved hosts, rejects nonpublic results, pins the selected address while preserving TLS hostname validation, refuses redirects, and limits the whole DNS/HTTP operation to five seconds and responses to 64 KiB. Network access is outside database transactions. Invalid or unavailable provider data returns 503 and cannot save a configuration or ownership binding. The current code supports only the read methods needed for identity and ordinary EOA code checks; it never signs or broadcasts transactions.
+The [transport](../apps/api/src/modules/networks/rpc.ts) resolves approved hosts, rejects nonpublic results, pins the selected address while preserving TLS hostname validation, refuses redirects, and limits the whole DNS/HTTP operation to five seconds and responses to 64 KiB. Network access is outside database transactions. Invalid or unavailable provider data returns 503 and cannot save a configuration or ownership binding. The current code supports only the read methods needed for identity and ordinary EOA code checks; the server never signs or broadcasts transactions; the connected browser wallet submits approved Sepolia payments.
 
 | Endpoint                          | Access and result                                                                                                              |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |

@@ -34,10 +34,37 @@ export async function connectExternalWallet(
     let chain = await provider.request({ method: 'eth_chainId' });
     if (typeof chain !== 'string') throw new Error('Unable to read the wallet network.');
     if (BigInt(chain) !== BigInt(network.chainId)) {
-      await provider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: `0x${BigInt(network.chainId).toString(16)}` }],
-      });
+      try {
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: `0x${BigInt(network.chainId).toString(16)}` }],
+        });
+      } catch (error) {
+        if (
+          !error ||
+          typeof error !== 'object' ||
+          !('code' in error) ||
+          error.code !== 4902 ||
+          network.chainId !== '11155111'
+        )
+          throw error;
+        await provider.request({
+          method: 'wallet_addEthereumChain',
+          params: [
+            {
+              chainId: '0xaa36a7',
+              chainName: 'Ethereum Sepolia',
+              nativeCurrency: { name: 'Sepolia ETH', symbol: 'ETH', decimals: 18 },
+              rpcUrls: ['https://ethereum-sepolia-rpc.publicnode.com/'],
+              blockExplorerUrls: ['https://sepolia.etherscan.io/'],
+            },
+          ],
+        });
+        await provider.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0xaa36a7' }],
+        });
+      }
       chain = await provider.request({ method: 'eth_chainId' });
       if (typeof chain !== 'string' || BigInt(chain) !== BigInt(network.chainId))
         throw new Error('Select the configured network in your wallet before linking.');

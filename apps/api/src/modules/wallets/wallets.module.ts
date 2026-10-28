@@ -1,3 +1,6 @@
+import { ChainIndexer } from '../chain-wallet/chain-indexer.js';
+import { ChainWalletService } from '../chain-wallet/chain-wallet.service.js';
+import { ChainWalletController } from '../chain-wallet/chain-wallet.controller.js';
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module.js';
 import { AccountsModule } from '../accounts/accounts.module.js';
@@ -10,8 +13,15 @@ import { ExternalWalletService } from './external-wallet.service.js';
 
 @Module({
   imports: [AuthModule, AccountsModule, NetworksModule],
-  providers: [WalletsService, RoleAuthorization, CustodyQueryService, ExternalWalletService],
-  controllers: [WalletsController],
+  providers: [
+    ChainIndexer,
+    ChainWalletService,
+    WalletsService,
+    RoleAuthorization,
+    CustodyQueryService,
+    ExternalWalletService,
+  ],
+  controllers: [WalletsController, ChainWalletController],
   exports: [WalletsService, RoleAuthorization],
 })
 export class WalletsModule {}

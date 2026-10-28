@@ -21,3 +21,19 @@ Feature: Wallet and asset setup are visible in the real browser UI
     When I register and open wallet setup from the main navigation
     And no external wallet provider is available in the browser
     Then the UI explains manual linking and administrator-only asset configuration
+
+  @testnet_wallet @happy @edge
+  Scenario: The unified wallet displays actual RPC balances without configuring demo assets
+    Given a real wallet setup browser for a "new user"
+    When I register and open wallet setup from the main navigation
+    And I connect and sign with a controlled external wallet provider
+    Then the unified wallet shows the verified native balance and survives reload
+
+  @testnet_wallet @happy @edge
+  Scenario: A native payment uses the wallet provider and preserves its submitted hash on reload
+    Given a real wallet setup browser for a "new user"
+    When the controlled local network uses the Sepolia chain ID
+    And I register and open wallet setup from the main navigation
+    And I connect and sign with a controlled external wallet provider
+    And I submit one wei using the unified wallet send form
+    Then the wallet submission is shown as pending and retained across reload without duplicate sending

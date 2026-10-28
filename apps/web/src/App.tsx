@@ -75,7 +75,7 @@ export function App() {
           Secure P2P
         </a>
         <span className="phase">
-          {user ? 'Demo asset workspace' : 'Your next connection starts here'}
+          {user ? 'Testnet wallet workspace' : 'Your next connection starts here'}
         </span>
       </header>
       <div className="auth-layout" hidden={recoveryActive}>
@@ -134,7 +134,7 @@ export function App() {
           ))}
         </section>
       )}
-      <footer>Secure P2P · Simulated assets</footer>
+      <footer>Secure P2P · Testnet funds and legacy demo assets</footer>
     </main>
   );
 }

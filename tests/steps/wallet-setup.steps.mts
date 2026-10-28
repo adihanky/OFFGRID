@@ -1,3 +1,4 @@
+import { NetworksService } from '../../apps/api/src/modules/networks/networks.service.js';
 import assert from 'node:assert/strict';
 import { After, Given, When, Then } from '@cucumber/cucumber';
 import { Wallet } from 'ethers';
@@ -317,3 +318,70 @@ Then(
 After({ tags: '@wallet_setup', timeout: 30000 }, async function (this: SetupWorld) {
   await this.setup?.close();
 });
+
+When(
+  'an ordinary user enables the canonical Sepolia preset twice',
+  async function (this: SetupWorld) {
+    const f = this.setup!;
+    const service = f.h.app.get(NetworksService);
+    Object.defineProperty(service, 'transport', {
+      value: async (_url: URL, method: string) =>
+        method === 'eth_chainId'
+          ? '0xaa36a7'
+          : { hash: '0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9' },
+    });
+    for (let i = 0; i < 2; i++)
+      assert.equal((await f.h.request(f.alice, '/api/v2/wallet/testnet', 'POST', {})).status, 201);
+  },
+);
+Then(
+  'exactly one active Sepolia network exists without granting administration',
+  async function (this: SetupWorld) {
+    const f = this.setup!;
+    assert.equal(
+      await f.h.database.db
+        .collection('networks')
+        .countDocuments({ chainId: '11155111', status: 'ACTIVE' }),
+      1,
+    );
+    assert.equal((await f.h.request(f.alice, '/api/v2/admin/networks')).status, 403);
+    assert.equal(await f.h.database.db.collection('walletBindings').countDocuments(), 0);
+  },
+);
+Then('paused networks and arbitrary preset inputs are rejected', async function (this: SetupWorld) {
+  const f = this.setup!;
+  await f.h.database.db
+    .collection('networks')
+    .updateOne({ chainId: '11155111' }, { $set: { status: 'PAUSED' } });
+  assert.equal((await f.h.request(f.alice, '/api/v2/wallet/testnet', 'POST', {})).status, 409);
+  assert.equal(
+    (await f.h.request(f.alice, '/api/v2/wallet/testnet', 'POST', { rpcUrl: 'http://127.0.0.1/' }))
+      .status,
+    400,
+  );
+  assert.equal(
+    (await f.h.request(f.alice, '/api/v2/wallet/testnet', 'POST', {}, { csrfValue: 'forged' }))
+      .status,
+    403,
+  );
+});
+Then(
+  'the linked owner sees the exact native balance while other users cannot',
+  async function (this: SetupWorld) {
+    const f = this.setup!;
+    const wallet = (
+      (await (await f.h.request(f.alice, '/api/v2/wallet')).json()) as { wallet: WalletV2 }
+    ).wallet;
+    const id = wallet.bindings[0]!.id;
+    const response = await f.h.request(f.alice, `/api/v2/wallet/bindings/${id}/balance`);
+    assert.equal(response.status, 200);
+    assert.equal(
+      ((await response.json()) as { balanceWei: string }).balanceWei,
+      '1000000000000000001',
+    );
+    assert.equal((await f.h.request(f.bob, `/api/v2/wallet/bindings/${id}/balance`)).status, 404);
+    assert.equal(await f.h.accounts.issuances.countDocuments(), 0);
+    f.rpcState.balance = 'invalid';
+    assert.equal((await f.h.request(f.alice, `/api/v2/wallet/bindings/${id}/balance`)).status, 503);
+  },
+);

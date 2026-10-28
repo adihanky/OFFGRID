@@ -36,6 +36,10 @@ export function HomePanel({
       <p>
         Demo units have no monetary value. A server connection is required to complete transfers.
       </p>
+      <p>
+        <a href="#/wallet">Set up a connected testnet wallet</a> to receive free Sepolia ETH and
+        send with your crypto wallet. The overview below tracks legacy demo activity.
+      </p>
       {resource.busy && <p role="status">Checking your workspace…</p>}
       {resource.error && (
         <p role="alert">
@@ -75,8 +79,8 @@ export function HomePanel({
             </p>
           )}
           <p>
-            Receive using @{data.receive.publicHandle}. External wallet linking is optional and
-            proves ownership only.
+            Receive legacy demo units using @{data.receive.publicHandle}. For testnet ETH, use your
+            verified crypto address on the Wallet page.
           </p>
           <div className="transfer-actions">
             <a href="#/wallet">Wallet and receive</a>

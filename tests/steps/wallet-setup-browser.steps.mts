@@ -20,6 +20,7 @@ interface SetupBrowserWorld {
     page: Page;
     errors: string[];
   };
+  submitted?: unknown[][];
   secondRpc?: Server;
   secondRpcUrl?: string;
 }
@@ -75,7 +76,11 @@ Given(
       async (input: { method: string; params?: unknown[] }) => {
         if (['eth_requestAccounts', 'eth_accounts'].includes(input.method))
           return [f.signer.address];
-        if (input.method === 'eth_chainId') return '0x7a69';
+        if (input.method === 'eth_chainId') return f.rpcState.chainId;
+        if (input.method === 'eth_sendTransaction') {
+          (this.submitted ??= []).push(input.params!);
+          return `0x${'ab'.repeat(32)}`;
+        }
         if (input.method === 'personal_sign')
           return f.signer.signMessage(getBytes(input.params![0] as string));
         throw new Error('Unexpected wallet provider method');
@@ -442,3 +447,72 @@ After({ tags: '@wallet_setup_browser', timeout: 30000 }, async function (this: S
   }
   assert.deepEqual(fixture?.errors ?? [], []);
 });
+
+Then(
+  'the unified wallet shows the verified native balance and survives reload',
+  { timeout: 30000 },
+  async function (this: SetupBrowserWorld) {
+    const { page } = this.setupBrowser!;
+    await page.getByText('1.000000000000000001 ETH', { exact: true }).waitFor();
+    await page.getByRole('link', { name: 'Wallet', exact: true }).click();
+    await page.getByText('1.000000000000000001 ETH', { exact: true }).waitFor();
+    await page.reload();
+    await page.getByText('Ownership verified', { exact: true }).waitFor();
+    await page.getByText('1.000000000000000001 ETH', { exact: true }).waitFor();
+    await mkdir('.local/test-results/testnet-wallet', { recursive: true });
+    await page.screenshot({
+      path: '.local/test-results/testnet-wallet/unified-wallet.png',
+      fullPage: true,
+    });
+  },
+);
+
+When(
+  'the controlled local network uses the Sepolia chain ID',
+  async function (this: SetupBrowserWorld) {
+    const { f } = this.setupBrowser!;
+    f.rpcState.chainId = '0xaa36a7';
+    await f.h.database.db
+      .collection('networks')
+      .updateOne({ _id: new ObjectId(f.network.id) }, { $set: { chainId: '11155111' } });
+  },
+);
+When(
+  'I submit one wei using the unified wallet send form',
+  { timeout: 30000 },
+  async function (this: SetupBrowserWorld) {
+    const { page } = this.setupBrowser!;
+    await page.getByText('1.000000000000000001 ETH', { exact: true }).waitFor();
+    await page.getByLabel('Recipient address', { exact: true }).fill(`0x${'34'.repeat(20)}`);
+    await page.getByLabel('Amount in ETH', { exact: true }).fill('0.000000000000000001');
+    await page.getByRole('button', { name: 'Review and send in wallet', exact: true }).click();
+    await page.getByRole('link', { name: 'View transaction on Sepolia', exact: true }).waitFor();
+  },
+);
+Then(
+  'the wallet submission is shown as pending and retained across reload without duplicate sending',
+  { timeout: 30000 },
+  async function (this: SetupBrowserWorld) {
+    const { page, f } = this.setupBrowser!;
+    assert.deepEqual(this.submitted, [
+      [
+        {
+          from: f.signer.address,
+          to: `0x${'34'.repeat(20)}`,
+          value: '0x1',
+          chainId: '0xaa36a7',
+        },
+      ],
+    ]);
+    await page.reload();
+    await page.getByRole('link', { name: 'View transaction on Sepolia', exact: true }).waitFor();
+    assert.equal(
+      await page
+        .getByRole('button', { name: 'Review and send in wallet', exact: true })
+        .isDisabled(),
+      true,
+    );
+    assert.equal(this.submitted?.length, 1);
+    assert.equal(await f.h.accounts.issuances.countDocuments(), 0);
+  },
+);

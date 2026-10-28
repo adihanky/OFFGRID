@@ -24,7 +24,9 @@ Then(
     const { page, f } = this.setupBrowser!;
     await page.getByRole('link', { name: 'Receive demo units', exact: true }).waitFor();
     await page
-      .getByText('External wallet linking is optional and proves ownership only.', { exact: false })
+      .getByText('For testnet ETH, use your verified crypto address on the Wallet page.', {
+        exact: false,
+      })
       .waitFor();
     assert.equal(await page.locator('.workspace-content > div:visible').count(), 1);
     await task(page, 'Wallet');
@@ -34,7 +36,10 @@ Then(
         .get((await import('../../apps/api/src/modules/wallets/wallets.service.js')).WalletsService)
         .own(f.admin.id)
     ).id;
-    await page.getByText(walletId, { exact: true }).first().waitFor();
+    await page
+      .getByRole('region', { name: 'Receive demo units' })
+      .getByText(walletId, { exact: true })
+      .waitFor();
     await page.setViewportSize({ width: 360, height: 800 });
     assert.equal(await page.evaluate('document.documentElement.scrollWidth <= innerWidth'), true);
     await mkdir('.local/test-results/p2p-enhancements', { recursive: true });

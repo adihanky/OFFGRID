@@ -92,3 +92,9 @@ export * from './settings.js';
 export * from './requests.js';
 export * from './workspace.js';
 export * from './notifications.js';
+export type {
+  ChainToken,
+  ChainActivity,
+  ChainHistory,
+  ChainTransactionPlan,
+} from './chain-wallet.js';

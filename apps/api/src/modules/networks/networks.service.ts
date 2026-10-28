@@ -148,6 +148,64 @@ export class NetworksService implements OnModuleInit {
     await this.networks.insertOne(record, { session });
     return record;
   }
+  /** Fixed, installation-approved preset; never accepts a user-supplied RPC destination. */
+  async enableSepolia() {
+    const existing = await this.networks.findOne({ chainId: '11155111' });
+    if (existing) {
+      if (
+        existing.genesisHash !==
+        '0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9'
+      )
+        throw new ConflictException('Configured chain is not canonical Sepolia.');
+      if (existing.status !== 'ACTIVE')
+        throw new ConflictException('Sepolia is paused by an administrator.');
+      return networkView(await this.active(existing._id.toHexString()));
+    }
+    const prepared = await this.prepare({
+      displayName: 'Ethereum Sepolia',
+      chainId: '11155111',
+      environment: 'TESTNET',
+      rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com/',
+      reason: 'User enabled the supported testnet wallet preset',
+    });
+    if (
+      prepared.genesisHash !== '0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9'
+    )
+      throw new ConflictException('Provider is not the canonical Ethereum Sepolia chain.');
+    const now = new Date();
+    try {
+      await this.networks.updateOne(
+        { chainId: prepared.chainId, genesisHash: prepared.genesisHash },
+        {
+          $setOnInsert: {
+            _id: new ObjectId(),
+            schemaVersion: 2,
+            displayName: prepared.displayName,
+            chainId: prepared.chainId,
+            genesisHash: prepared.genesisHash,
+            environment: 'TESTNET',
+            rpcUrl: prepared.rpcUrl,
+            status: 'ACTIVE',
+            revision: toLong(0n),
+            useRevision: toLong(0n),
+            createdAt: now,
+            updatedAt: now,
+          },
+        },
+        { upsert: true },
+      );
+    } catch (error) {
+      if (!(error && typeof error === 'object' && 'code' in error && error.code === 11000))
+        throw error;
+    }
+    const record = await this.networks.findOne({
+      chainId: prepared.chainId,
+      genesisHash: prepared.genesisHash,
+    });
+    if (!record || record.status !== 'ACTIVE')
+      throw new ConflictException('Sepolia is unavailable.');
+    return networkView(record);
+  }
   async active(id: string) {
     const network = await this.networks.findOne({ _id: objectId(id), status: 'ACTIVE' });
     if (!network) throw new NotFoundException('Network is unavailable.');

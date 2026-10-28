@@ -740,3 +740,18 @@ button,
 a {
   touch-action: manipulation;
 }
+
+.wallet-setup-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+.wallet-setup-grid > .admin-form {
+  order: 0;
+}
+.legacy-wallet-preferences {
+  order: 1;
+}
+.legacy-wallet-preferences summary {
+  cursor: pointer;
+}

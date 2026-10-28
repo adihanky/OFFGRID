@@ -1,6 +1,6 @@
 # Application wallets
 
-The browser includes v2 wallet/send, explicit wallet setup, participant Activity/receipts and custody views, [administration](ADMINISTRATION.md), [supported product policies](DEMO_ENHANCEMENTS.md#supported-configuration) and [verified EVM address linking](NETWORKS.md) on configured local/testnet networks. Explicit offline legacy backfill preserves existing users. See the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md) for the complete target. Real blockchain balances/settlement and mainnet activation remain pending.
+The browser includes v2 wallet/send, explicit wallet setup, participant Activity/receipts and custody views, [administration](ADMINISTRATION.md), [supported product policies](DEMO_ENHANCEMENTS.md#supported-configuration) and [verified EVM address linking](NETWORKS.md) on configured local/testnet networks. Explicit offline legacy backfill preserves existing users. See the [overhaul LLD](WALLET_ASSET_OVERHAUL_LLD.md) for the complete target. Native Sepolia ETH balances and wallet-approved payments are implemented in the [unified testnet journey](TESTNET_WALLET.md). ERC-20 execution and indexed on-chain history are implemented in that journey; mainnet activation remains unavailable.
 
 ## Ownership and registration
 

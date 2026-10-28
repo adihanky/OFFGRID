@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@p2p/contracts": "0.1.0",
+    "ethers": "6.17.0",
     "react": "19.3.1",
     "react-dom": "19.3.1"
   },

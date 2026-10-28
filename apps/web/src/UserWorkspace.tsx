@@ -1,3 +1,4 @@
+import { OnChainActivityPanel } from './OnChainActivityPanel';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AuthUser, WorkspaceOverview } from '@p2p/contracts';
 import { consumerLinks, consumerSection } from './consumer-navigation';
@@ -75,20 +76,40 @@ export function UserWorkspace({
             <a href="#/notifications">Open notifications</a>
           </p>
         </div>
-        <div hidden={section !== 'wallet' && section !== 'send'}>
-          <WalletPanel
+        <section hidden={section !== 'wallet' && section !== 'send' && section !== 'setup'}>
+          <WalletSetupPanel
             user={user}
-            consumerMode
-            view={section === 'send' ? 'send' : 'wallet'}
-            refreshVersion={version}
-            pendingCount={
-              overview.busy || overview.error || !overview.data ? null : overview.data.pendingCount
-            }
-            onOutcomeChanged={onChanged}
+            onChanged={onChanged}
             onSessionExpired={onSessionExpired}
+            showLegacyPreferences={section === 'setup'}
+            refreshVersion={version}
           />
+        </section>
+        <div hidden={section !== 'wallet' && section !== 'send'}>
+          <details open>
+            <summary>Legacy simulated balances and transfers</summary>
+            <WalletPanel
+              user={user}
+              consumerMode
+              view={section === 'send' ? 'send' : 'wallet'}
+              refreshVersion={version}
+              pendingCount={
+                overview.busy || overview.error || !overview.data
+                  ? null
+                  : overview.data.pendingCount
+              }
+              onOutcomeChanged={onChanged}
+              onSessionExpired={onSessionExpired}
+            />
+          </details>
         </div>
         <div hidden={section !== 'activity'}>
+          <OnChainActivityPanel
+            userId={user.id}
+            active={section === 'activity'}
+            onSessionExpired={onSessionExpired}
+          />
+          <p>Legacy demo activity</p>
           <TransferHistoryPanel
             user={user}
             active={section === 'activity'}
@@ -105,7 +126,6 @@ export function UserWorkspace({
               <a href="#/help">Help</a>
             </div>
           </div>
-          <WalletSetupPanel user={user} onChanged={onChanged} onSessionExpired={onSessionExpired} />
         </div>
         <div hidden={section !== 'assets'}>
           <AssetCataloguePanel

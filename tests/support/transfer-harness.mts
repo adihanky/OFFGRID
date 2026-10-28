@@ -90,7 +90,7 @@ export async function createTransferHarness(
     } = {},
   ) {
     if (
-      !/^\/api\/(auth\/(csrf|signup|signin|signout|me|recovery-status|password-reset-requests|password-resets|email-verification-requests|email-verifications|sessions(?:\/revoke-others|\/[a-f0-9]{24}\/revoke)?)|accounts|peers|transfers(?:\/[a-f0-9]{24})?|v2\/(workspace|requests|notifications(?:\/[a-f0-9]{24}\/read)?|wallet(?:\/settings|\/binding-challenges|\/bindings(?:\/[a-f0-9]{24}\/revoke)?)?|assets|networks|peer-resolutions|custody(?:\/[a-f0-9]{24})?|admin\/(?:status|setup|(?:assets|networks)(?:\/[a-f0-9]{24})?|issuances|roles|audit|requests(?:\/[a-f0-9]{24}\/decision)?|operations|verification-jobs|jobs\/[a-f0-9]{24}|settings(?:\/(?:validate|revisions))?|seed\/(?:preview|run|status))|transfers(?:\/[a-f0-9]{24}(?:\/(?:receipt|chain))?)?))(?:\?|$)/.test(
+      !/^\/api\/(auth\/(csrf|signup|signin|signout|me|recovery-status|password-reset-requests|password-resets|email-verification-requests|email-verifications|sessions(?:\/revoke-others|\/[a-f0-9]{24}\/revoke)?)|accounts|peers|transfers(?:\/[a-f0-9]{24})?|v2\/(workspace|requests|notifications(?:\/[a-f0-9]{24}\/read)?|wallet(?:\/testnet|\/settings|\/binding-challenges|\/bindings(?:\/[a-f0-9]{24}\/(?:revoke|balance|chain\/(?:tokens|prepare|transactions|sync|history)))?)?|assets|networks|peer-resolutions|custody(?:\/[a-f0-9]{24})?|admin\/(?:status|setup|(?:assets|networks)(?:\/[a-f0-9]{24})?|issuances|roles|audit|requests(?:\/[a-f0-9]{24}\/decision)?|operations|verification-jobs|jobs\/[a-f0-9]{24}|settings(?:\/(?:validate|revisions))?|seed\/(?:preview|run|status))|transfers(?:\/[a-f0-9]{24}(?:\/(?:receipt|chain))?)?))(?:\?|$)/.test(
         path,
       )
     )

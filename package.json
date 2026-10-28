@@ -37,19 +37,23 @@
     "wallet:migration:apply": "npm run build -w @p2p/contracts && npm run build -w @p2p/api && node scripts/migrate-wallets.mjs --execute",
     "smoke": "node scripts/smoke.mjs",
     "infra:up": "docker compose up -d --wait && npm run db:init",
-    "infra:down": "docker compose down"
+    "infra:down": "docker compose down",
+    "build:test-token": "node scripts/build-test-token.mjs && prettier --write apps/web/src/test-token-artifact.ts"
   },
   "devDependencies": {
     "@cucumber/cucumber": "13.3.0",
     "@eslint/js": "10.0.1",
     "@nestjs/testing": "12.2.0",
+    "@openzeppelin/contracts": "5.6.1",
     "@types/node": "24.19.2",
     "concurrently": "10.0.6",
     "eslint": "10.13.0",
+    "ganache": "7.9.2",
     "globals": "17.13.0",
     "mongodb": "7.7.0",
     "playwright-core": "1.64.1",
     "prettier": "3.9.10",
+    "solc": "0.8.38",
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.0"
