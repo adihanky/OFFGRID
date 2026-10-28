@@ -247,6 +247,34 @@ Then(
     await page.getByLabel('Network change reason').fill('Update provider display policy');
     await page.getByRole('button', { name: 'Verify & save network', exact: true }).click();
     await page.getByRole('button', { name: 'Verify & add network', exact: true }).waitFor();
+    await page
+      .getByRole('button', { name: 'Manage network Renamed browser EVM', exact: true })
+      .click();
+    await page.getByLabel('Network change reason').fill('Pause for provider update');
+    const networkRow = page.locator('li').filter({ hasText: 'Renamed browser EVM' });
+    await networkRow.getByRole('button', { name: 'Pause network', exact: true }).click();
+    await page.getByText('Network availability updated.', { exact: true }).waitFor();
+    await page
+      .getByRole('button', { name: 'Manage network Renamed browser EVM', exact: true })
+      .click();
+    await page.getByLabel('Network change reason').fill('Resume with updated provider');
+    await page.getByLabel('Public RPC URL').fill('http://127.0.0.1:9/');
+    await page.getByRole('button', { name: 'Verify & resume network', exact: true }).click();
+    await page
+      .getByRole('alert')
+      .getByText('Network provider is unavailable. Check RPC access and retry.')
+      .waitFor();
+    assert.equal(
+      (await f.h.database.db.collection('networks').findOne({ chainId: '31338' }))?.['status'],
+      'PAUSED',
+    );
+    const updatedUrl = this.secondRpcUrl!.replace('127.0.0.1', 'localhost');
+    await page.getByLabel('Public RPC URL').fill(updatedUrl);
+    await page.getByRole('button', { name: 'Verify & resume network', exact: true }).click();
+    await page.getByText('Network availability updated.', { exact: true }).waitFor();
+    const resumed = await f.h.database.db.collection('networks').findOne({ chainId: '31338' });
+    assert.equal(resumed?.['status'], 'ACTIVE');
+    assert.equal(resumed?.['rpcUrl'], updatedUrl);
     await page.getByRole('link', { name: 'Settings', exact: true }).click();
     await page
       .getByLabel('Wallet network')

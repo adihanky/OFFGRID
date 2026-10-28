@@ -14,6 +14,45 @@ import {
   type EthereumProvider,
 } from '../../apps/web/src/external-wallet-client.js';
 import type { WalletChallenge, WalletNetwork } from '@p2p/contracts';
+import {
+  NetworksService,
+  SEPOLIA_CHECKPOINT,
+  SEPOLIA_GENESIS,
+} from '../../apps/api/src/modules/networks/networks.service.js';
+import type { RpcTransport } from '../../apps/api/src/modules/networks/rpc.js';
+
+describe('Sepolia provider identity', () => {
+  const environment = testEnvironment({
+    EVM_RPC_ALLOWED_HOSTS: 'ethereum-sepolia-rpc.publicnode.com',
+  });
+  const network = {
+    chainId: '11155111',
+    environment: 'TESTNET' as const,
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com/',
+  };
+  function service(chain: unknown, block: unknown) {
+    const calls: unknown[][] = [];
+    const transport: RpcTransport = async (_url, method, params) => {
+      calls.push([method, params]);
+      return method === 'eth_chainId' ? chain : block;
+    };
+    return { instance: new NetworksService({} as never, environment, transport), calls };
+  }
+  it('[happy] verifies a pruned Sepolia provider using the fixed checkpoint', async () => {
+    const { instance, calls } = service('0xaa36a7', SEPOLIA_CHECKPOINT);
+    assert.equal(await instance.identity(network), SEPOLIA_GENESIS);
+    assert.deepEqual(calls[1], ['eth_getBlockByNumber', [SEPOLIA_CHECKPOINT.number, false]]);
+  });
+  it('[negative/edge] rejects wrong chain, hash, height and malformed checkpoint', async () => {
+    for (const [chain, block] of [
+      ['0x1', SEPOLIA_CHECKPOINT],
+      ['0xaa36a7', { ...SEPOLIA_CHECKPOINT, hash: `0x${'ab'.repeat(32)}` }],
+      ['0xaa36a7', { ...SEPOLIA_CHECKPOINT, number: '0x0' }],
+      ['0xaa36a7', null],
+    ])
+      await assert.rejects(() => service(chain, block).instance.identity(network));
+  });
+});
 describe('External wallet ownership proof inputs', () => {
   it('[happy/edge] normalizes real addresses while retaining checksum validation', () => {
     const address = Wallet.createRandom().address;

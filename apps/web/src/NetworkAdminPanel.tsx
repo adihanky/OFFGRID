@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AuthUser, WalletNetwork } from '@p2p/contracts';
 import { walletRequest, walletWrite, WalletApiError } from './wallet-v2-client';
+import { resumeNetworkEdits } from './network-admin-edits';
 export function NetworkAdminPanel({
   user,
   onChanged,
@@ -16,7 +17,7 @@ export function NetworkAdminPanel({
     displayName: 'Ethereum Sepolia',
     chainId: '11155111',
     environment: 'TESTNET',
-    rpcUrl: 'https://sepolia.drpc.org/',
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com/',
     reason: '',
   });
   const [busy, setBusy] = useState(false),
@@ -162,6 +163,7 @@ export function NetworkAdminPanel({
                 {network.status.toLowerCase()}
               </span>
               <small>Genesis {network.genesisHash}</small>
+              <small>Saved RPC {network.rpcUrl}</small>
               <button
                 type="button"
                 className="secondary-button"
@@ -190,9 +192,11 @@ export function NetworkAdminPanel({
                         revision: network.revision,
                         status: network.status === 'ACTIVE' ? 'PAUSED' : 'ACTIVE',
                         reason: draft.reason,
+                        ...resumeNetworkEdits(network, editing, draft),
                       },
                       { timeout: 20000 },
                     );
+                    setEditing(null);
                     setNotice('Network availability updated.');
                   })
                 }

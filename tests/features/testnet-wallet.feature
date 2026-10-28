@@ -12,6 +12,12 @@ Feature: A unified testnet wallet has no circular network prerequisite
     When an ordinary user enables the canonical Sepolia preset twice
     Then paused networks and arbitrary preset inputs are rejected
 
+  @negative @edge
+  Scenario: A provider with an incorrect or malformed Sepolia checkpoint is rejected
+    Given an isolated wallet setup fixture
+    When a user enables Sepolia with invalid checkpoint responses
+    Then no Sepolia network is saved
+
   @happy @negative @edge
   Scenario: Verified owners see exact on-chain balances without demo issuance
     Given an isolated wallet setup fixture

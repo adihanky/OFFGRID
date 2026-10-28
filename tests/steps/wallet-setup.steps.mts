@@ -1,4 +1,7 @@
-import { NetworksService } from '../../apps/api/src/modules/networks/networks.service.js';
+import {
+  NetworksService,
+  SEPOLIA_CHECKPOINT,
+} from '../../apps/api/src/modules/networks/networks.service.js';
 import assert from 'node:assert/strict';
 import { After, Given, When, Then } from '@cucumber/cucumber';
 import { Wallet } from 'ethers';
@@ -326,14 +329,35 @@ When(
     const service = f.h.app.get(NetworksService);
     Object.defineProperty(service, 'transport', {
       value: async (_url: URL, method: string) =>
-        method === 'eth_chainId'
-          ? '0xaa36a7'
-          : { hash: '0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9' },
+        method === 'eth_chainId' ? '0xaa36a7' : SEPOLIA_CHECKPOINT,
     });
     for (let i = 0; i < 2; i++)
       assert.equal((await f.h.request(f.alice, '/api/v2/wallet/testnet', 'POST', {})).status, 201);
   },
 );
+When('a user enables Sepolia with invalid checkpoint responses', async function (this: SetupWorld) {
+  const f = this.setup!;
+  const service = f.h.app.get(NetworksService);
+  for (const response of [
+    { ...SEPOLIA_CHECKPOINT, hash: `0x${'ab'.repeat(32)}` },
+    { ...SEPOLIA_CHECKPOINT, number: '0x0' },
+    null,
+  ]) {
+    Object.defineProperty(service, 'transport', {
+      configurable: true,
+      value: async (_url: URL, method: string) =>
+        method === 'eth_chainId' ? '0xaa36a7' : response,
+    });
+    const result = await f.h.request(f.alice, '/api/v2/wallet/testnet', 'POST', {});
+    assert.ok([409, 503].includes(result.status));
+  }
+});
+Then('no Sepolia network is saved', async function (this: SetupWorld) {
+  assert.equal(
+    await this.setup!.h.database.db.collection('networks').countDocuments({ chainId: '11155111' }),
+    0,
+  );
+});
 Then(
   'exactly one active Sepolia network exists without granting administration',
   async function (this: SetupWorld) {

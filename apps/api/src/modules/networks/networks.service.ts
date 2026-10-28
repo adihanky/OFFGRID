@@ -18,6 +18,11 @@ import { toLong } from '../accounts/quantity.js';
 import { objectId } from '../accounts/accounts.service.js';
 import { parseInput } from '../assets/asset-input.js';
 import { rpcUrl, RPC_TRANSPORT, type RpcMethod, type RpcTransport } from './rpc.js';
+export const SEPOLIA_GENESIS = '0x25a5cc106eea7138acab33231d7160d69cb777ee0c2c553fcddf5138993e6dd9';
+export const SEPOLIA_CHECKPOINT = {
+  number: '0x4c4b40',
+  hash: '0x72247ea9191db039158939f7ba958e638a32df4f61a43edcae60cb7a686a2d55',
+} as const;
 export interface NetworkRecord {
   _id: ObjectId;
   schemaVersion: 2;
@@ -99,7 +104,11 @@ export class NetworksService implements OnModuleInit {
       BigInt(chain).toString() !== network.chainId
     )
       throw new BadRequestException('RPC chain ID does not match the configured network.');
-    const block = await this.call(network, 'eth_getBlockByNumber', ['0x0', false]);
+    const sepolia = network.environment === 'TESTNET' && network.chainId === '11155111';
+    const block = await this.call(network, 'eth_getBlockByNumber', [
+      sepolia ? SEPOLIA_CHECKPOINT.number : '0x0',
+      false,
+    ]);
     if (
       !block ||
       typeof block !== 'object' ||
@@ -108,7 +117,16 @@ export class NetworksService implements OnModuleInit {
       !/^0x[0-9a-f]{64}$/i.test(block.hash) ||
       /^0x0{64}$/i.test(block.hash)
     )
-      throw new ServiceUnavailableException('RPC did not provide a valid genesis block.');
+      throw new ServiceUnavailableException('RPC did not provide a valid identity block.');
+    if (sepolia) {
+      if (
+        !('number' in block) ||
+        block.number !== SEPOLIA_CHECKPOINT.number ||
+        block.hash.toLowerCase() !== SEPOLIA_CHECKPOINT.hash
+      )
+        throw new ConflictException('Provider is not the canonical Ethereum Sepolia chain.');
+      return SEPOLIA_GENESIS;
+    }
     return block.hash.toLowerCase();
   }
   async prepare(value: unknown) {
