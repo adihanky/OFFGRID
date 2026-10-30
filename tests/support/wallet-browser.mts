@@ -229,6 +229,7 @@ export class WalletBrowser {
     const address = this.server.httpServer!.address();
     assert.ok(address && typeof address === 'object');
     await this.page.goto(`http://127.0.0.1:${address.port}/#/send`);
+    await this.page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     await this.page.getByRole('heading', { name: 'Send demo units' }).waitFor();
   }
 

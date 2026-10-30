@@ -3,6 +3,7 @@ export const consumerLinks = [
   { hash: '#/wallet', label: 'Wallet', section: 'wallet' },
   { hash: '#/send', label: 'Send', section: 'send' },
   { hash: '#/activity', label: 'Activity', section: 'activity' },
+  { hash: '#/chat', label: 'Chat', section: 'chat' },
   { hash: '#/settings', label: 'Settings', section: 'setup' },
   { hash: '#/assets', label: 'Assets', section: 'assets' },
   { hash: '#/help', label: 'Help', section: 'help' },
@@ -23,6 +24,7 @@ export function consumerSection(hash: string): ConsumerSection {
   if (Object.hasOwn(legacy, hash)) return legacy[hash]!;
   if (hash === '#/settings/security') return 'security';
   if (hash === '#/notifications') return 'notifications';
+  if (/^#\/chat\/[a-f0-9]{24}$/.test(hash)) return 'chat';
   if (/^#\/activity(?:\/[a-f0-9]{24}|\?[^#]*)?$/.test(hash)) return 'activity';
   if (
     /^#\/admin\/(assets|networks|policies|requests|demo|access|audit|operations)$/.test(hash) ||

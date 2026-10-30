@@ -2,9 +2,11 @@
 
 The [unified testnet wallet](docs/TESTNET_WALLET.md) connects Sepolia setup, ownership verification, native ETH/ERC-20 balances, faucet funding, wallet-approved sending and indexed chain receipts. Existing simulated assets remain available as legacy demo data.
 
-A TypeScript workspace for a server-coordinated simulation of peer-to-peer asset transfers, with MongoDB persistence, a transfer audit chain, and direct chat.
+A TypeScript workspace for server-coordinated peer-to-peer asset transfers, with MongoDB persistence, a simulated transfer audit chain, a separate testnet wallet, and direct chat source.
 
-The implementation includes authentication, wallets, atomic demo transfers, participant Activity/receipts, pending discovery, consumer tasks, typed configuration, tracked administrator requests, session security, notifications and read-only verification jobs. [Core demo enhancements](docs/DEMO_ENHANCEMENTS.md) describes the P00–P08 boundaries; current test and live-delivery evidence is in [onboarding.md](onboarding.md). Live recovery email is disabled by user choice. EVM settlement, a global chain explorer and chat remain later work.
+The proposed [peer chat and crypto sharing design](docs/CHAT_AND_CRYPTO_SHARING.md) covers one-to-one conversations, recipient-shared verified addresses, in-chat Sepolia sends and participant receipts. Persistent text chat now has API and screen implementations, including participant checks, unread state, blocking and five-second polling. Database/browser delivery remains unverified; in-chat crypto sending and socket delivery remain later stages.
+
+The implementation includes authentication, wallets, atomic demo transfers, participant Activity/receipts, pending discovery, consumer tasks, typed configuration, tracked administrator requests, session security, notifications and read-only verification jobs. [Core demo enhancements](docs/DEMO_ENHANCEMENTS.md) describes the P00–P08 boundaries; current test and live-delivery evidence is in [onboarding.md](onboarding.md). Live recovery email is disabled by user choice. Testnet EVM sending and indexing have a separate implementation; mainnet, a global chain explorer and in-chat crypto sending remain later work.
 
 See [authentication setup and API documentation](docs/AUTHENTICATION.md) to configure Google and review session behavior.
 
@@ -123,6 +125,8 @@ Vite's development proxy targets port 3000. If changing `API_PORT`, update `apps
 | `GET /api/health/ready` | MongoDB connectivity and writable replica set readiness |
 
 Development MongoDB is unauthenticated and bound/exposed only to loopback. This setup is for local development; production requires credentials, TLS, restricted access, and a redundant deployment. Email authentication needs no external account. Enable Google by configuring all three optional Google variables, as described in the authentication guide.
+
+The Wallet, Send, Settings and Activity tasks default to **Network / testnet wallets**. Use the **Legacy simulated wallets** button to show demo wallets and history; switching back preserves an opened legacy draft for the signed-in session. Reload or account change restores the network default.
 
 ## Development commands
 

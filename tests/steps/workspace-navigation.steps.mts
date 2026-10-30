@@ -50,11 +50,13 @@ Then(
       'Unsaved navigation draft',
     );
     await page.reload();
+    await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     await page.getByLabel('Wallet name', { exact: true }).waitFor();
     await active(page, 'Settings');
     assert.match(page.url(), /#\/settings$/);
     await page.goto(`${new URL(page.url()).origin}/#wallet-setup-title`);
     await page.reload();
+    await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     await page.getByLabel('Wallet name', { exact: true }).waitFor();
     await active(page, 'Settings');
     assert.match(page.url(), /#wallet-setup-title$/);

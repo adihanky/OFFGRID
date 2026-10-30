@@ -12,6 +12,9 @@ import { RequestsPanel } from './RequestsPanel';
 import { NotificationsPanel } from './NotificationsPanel';
 import { SecurityPanel } from './SecurityPanel';
 import { useWalletResource } from './use-wallet-resource';
+import { WalletViewSwitch } from './WalletViewSwitch';
+import { ChatPanel } from './ChatPanel';
+import { chooseWalletView, walletSelectionFor, type WalletSelection } from './wallet-view';
 
 export function UserWorkspace({
   user,
@@ -26,6 +29,8 @@ export function UserWorkspace({
 }) {
   const [version, setVersion] = useState(0),
     content = useRef<HTMLDivElement>(null);
+  const [walletSelection, setWalletSelection] = useState<WalletSelection | null>(null);
+  const walletView = walletSelectionFor(walletSelection, user.id);
   const section = consumerSection(fragment);
   const onChanged = useCallback(() => setVersion((value) => value + 1), []);
   const overview = useWalletResource<WorkspaceOverview>(
@@ -66,6 +71,26 @@ export function UserWorkspace({
         </a>
       </nav>
       <div className="workspace-content" ref={content} tabIndex={-1}>
+        <div hidden={section !== 'chat'}>
+          <ChatPanel
+            key={user.id}
+            user={user}
+            active={section === 'chat'}
+            fragment={fragment}
+            onSessionExpired={onSessionExpired}
+          />
+        </div>
+        <section
+          hidden={!['wallet', 'send', 'setup', 'activity'].includes(section)}
+          aria-label="Wallet display options"
+        >
+          <WalletViewSwitch
+            view={walletView.view}
+            onChange={(view) =>
+              setWalletSelection((current) => chooseWalletView(current, user.id, view))
+            }
+          />
+        </section>
         <div hidden={section !== 'home'}>
           <HomePanel
             active={section === 'home'}
@@ -82,13 +107,14 @@ export function UserWorkspace({
             onChanged={onChanged}
             onSessionExpired={onSessionExpired}
             showLegacyPreferences={section === 'setup'}
+            view={walletView.view}
             refreshVersion={version}
           />
         </section>
-        <div hidden={section !== 'wallet' && section !== 'send'}>
-          <details open>
-            <summary>Legacy simulated balances and transfers</summary>
+        <div hidden={walletView.view !== 'legacy' || (section !== 'wallet' && section !== 'send')}>
+          {walletView.legacyOpened && (
             <WalletPanel
+              key={user.id}
               user={user}
               consumerMode
               view={section === 'send' ? 'send' : 'wallet'}
@@ -101,21 +127,26 @@ export function UserWorkspace({
               onOutcomeChanged={onChanged}
               onSessionExpired={onSessionExpired}
             />
-          </details>
+          )}
         </div>
         <div hidden={section !== 'activity'}>
-          <OnChainActivityPanel
-            userId={user.id}
-            active={section === 'activity'}
-            onSessionExpired={onSessionExpired}
-          />
-          <p>Legacy demo activity</p>
-          <TransferHistoryPanel
-            user={user}
-            active={section === 'activity'}
-            fragment={fragment}
-            onSessionExpired={onSessionExpired}
-          />
+          {walletView.view === 'network' ? (
+            <OnChainActivityPanel
+              userId={user.id}
+              active={section === 'activity'}
+              onSessionExpired={onSessionExpired}
+            />
+          ) : (
+            <>
+              <p>Legacy demo activity</p>
+              <TransferHistoryPanel
+                user={user}
+                active={section === 'activity'}
+                fragment={fragment}
+                onSessionExpired={onSessionExpired}
+              />
+            </>
+          )}
           <a href="#/notifications">Notifications</a>
         </div>
         <div hidden={section !== 'setup'}>

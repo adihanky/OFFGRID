@@ -92,8 +92,10 @@ Given(
     );
     this.setupBrowser = { f, browser, web, page, errors };
     await page.goto(role === 'asset administrator' ? `${url}/#/send` : url);
-    if (role === 'asset administrator')
+    if (role === 'asset administrator') {
+      await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
       await page.getByRole('heading', { name: 'Send demo units', exact: true }).waitFor();
+    }
   },
 );
 When(
@@ -116,6 +118,7 @@ When(
   { timeout: 30000 },
   async function (this: SetupBrowserWorld) {
     const page = this.setupBrowser!.page;
+    await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     await page.getByLabel('Wallet name', { exact: true }).fill('My browser wallet');
     await page
       .getByLabel('Default asset', { exact: true })
@@ -129,6 +132,7 @@ When(
   { timeout: 60000 },
   async function (this: SetupBrowserWorld) {
     const page = this.setupBrowser!.page;
+    await page.getByRole('button', { name: 'Network / testnet wallets', exact: true }).click();
     await page.getByRole('button', { name: 'Connect crypto wallet', exact: true }).click();
     await page.getByText('Ownership verified', { exact: true }).waitFor();
   },
@@ -140,6 +144,7 @@ Then(
     const { page, f } = this.setupBrowser!;
     await page.reload();
     await page.getByText('Wallet setup complete', { exact: true }).waitFor();
+    await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     assert.equal(
       await page.getByLabel('Wallet name', { exact: true }).inputValue(),
       'My browser wallet',
@@ -148,6 +153,7 @@ Then(
       await page.getByLabel('Default asset', { exact: true }).inputValue(),
       f.asset._id.toHexString(),
     );
+    await page.getByRole('button', { name: 'Network / testnet wallets', exact: true }).click();
     await page.getByText('Ownership verified', { exact: true }).waitFor();
     await page.getByText(f.signer.address, { exact: true }).waitFor();
     assert.equal(await f.h.database.db.collection('walletBindings').countDocuments(), 1);
@@ -299,6 +305,7 @@ When(
     await page.evaluate(() => {
       delete (globalThis as unknown as { ethereum?: EthereumProvider }).ethereum;
     });
+    await page.getByRole('button', { name: 'Network / testnet wallets', exact: true }).click();
     await page.getByRole('button', { name: 'Connect crypto wallet', exact: true }).click();
   },
 );

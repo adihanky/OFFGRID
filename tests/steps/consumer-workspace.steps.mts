@@ -30,6 +30,7 @@ Then(
       .waitFor();
     assert.equal(await page.locator('.workspace-content > div:visible').count(), 1);
     await task(page, 'Wallet');
+    await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     await page.getByRole('region', { name: 'Receive demo units' }).waitFor();
     const walletId = (
       await f.h.app
@@ -75,6 +76,7 @@ Then(
     for (const reload of [false, true]) {
       if (reload) {
         await page.reload();
+        await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
         await page.getByRole('heading', { name: 'Send demo units', exact: true }).waitFor();
       }
       assert.equal(await page.getByLabel('Recipient public handle').inputValue(), 'setup_bob');
@@ -114,6 +116,7 @@ Then(
     const { page, f } = this.setupBrowser!;
     await page.getByRole('link', { name: 'Receive demo units', exact: true }).waitFor();
     await task(page, 'Send');
+    await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     assert.equal(await page.getByLabel('Recipient public handle').inputValue(), '');
     assert.equal(await page.getByLabel('Quantity', { exact: true }).inputValue(), '');
     assert.equal((await page.content()).includes('private_peer'), false);

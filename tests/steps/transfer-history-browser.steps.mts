@@ -77,6 +77,7 @@ Then(
       .getByRole('navigation', { name: 'Workspace navigation' })
       .getByRole('link', { name: 'Activity', exact: true })
       .click();
+    await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     await page.locator(`a[href="#/activity/${this.browserTransferId}"]`).click();
     await page.getByRole('heading', { name: 'Original transfer outcome', exact: true }).waitFor();
     await page.getByRole('button', { name: 'Check status', exact: true }).click();

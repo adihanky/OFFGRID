@@ -5,7 +5,7 @@ import { workspaceLinks, workspaceSection } from '../../apps/web/src/workspace-n
 describe('workspace destinations', () => {
   it('opens the requested task for every visible navigation link', () => {
     for (const link of workspaceLinks) assert.equal(workspaceSection(link.hash), link.section);
-    assert.equal(new Set(workspaceLinks.map((link) => link.section)).size, 8);
+    assert.equal(new Set(workspaceLinks.map((link) => link.section)).size, 9);
   });
   it('opens administrator guidance from the existing account bookmark', () => {
     assert.equal(workspaceSection('#admin-account-title'), 'admin');

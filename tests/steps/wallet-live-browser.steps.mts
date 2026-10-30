@@ -122,6 +122,7 @@ When(
       .getByRole('navigation', { name: 'Workspace navigation' })
       .getByRole('link', { name: 'Send', exact: true })
       .click();
+    await page.getByRole('button', { name: 'Legacy simulated wallets', exact: true }).click();
     await page.locator('.wallet-balances').getByText('100.00', { exact: true }).waitFor();
   },
 );

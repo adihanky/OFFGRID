@@ -3,13 +3,16 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { AssetV2, AuthUser, WalletChallenge, WalletNetwork, WalletV2 } from '@p2p/contracts';
 import { v2Api, walletRequest, walletWrite, WalletApiError } from './wallet-v2-client';
 import { connectExternalWallet, ethereumProvider } from './external-wallet-client';
+import type { WalletView } from './wallet-view';
 export function WalletSetupPanel({
   user,
   onChanged,
   onSessionExpired,
   showLegacyPreferences = false,
   refreshVersion = 0,
+  view = 'network',
 }: {
+  view?: WalletView;
   showLegacyPreferences?: boolean;
   refreshVersion?: number;
   user: AuthUser;
@@ -131,7 +134,7 @@ export function WalletSetupPanel({
           Refresh wallet setup
         </button>
       </div>
-      <p>
+      <p hidden={view !== 'network'}>
         Set up one connected wallet: choose Ethereum Sepolia, verify your address, then fund it with
         free testnet ETH. Your crypto wallet holds and signs for your funds.
       </p>
@@ -142,66 +145,68 @@ export function WalletSetupPanel({
         </p>
       )}
       <div className="wallet-setup-grid">
-        <details className="legacy-wallet-preferences" open={showLegacyPreferences}>
-          <summary>Legacy demo wallet preferences</summary>
-          <form
-            className="admin-form"
-            onSubmit={(event) =>
-              submit(event, async () => {
-                if (!wallet) return;
-                const saved = await walletWrite<{ wallet: WalletV2 }>(
-                  user.id,
-                  'v2/wallet/settings',
-                  {
-                    displayName,
-                    preferredAssetId: preferredAssetId || null,
-                    revision: wallet.configurationRevision ?? '0',
-                  },
-                  { signal: lifetime.current!.signal },
-                );
-                if (lifetime.current!.signal.aborted) return;
-                setWallet(saved.wallet);
-                setDisplayName(saved.wallet.displayName ?? displayName);
-                setPreferredAssetId(saved.wallet.preferredAssetId ?? '');
-                onChanged();
-              })
-            }
-          >
-            <fieldset disabled={busy || !wallet}>
-              <h3>Legacy demo preferences</h3>
-              <label>
-                Wallet name
-                <input
-                  required
-                  maxLength={60}
-                  value={displayName}
-                  onChange={(event) => setDisplayName(event.target.value)}
-                />
-              </label>
-              <label htmlFor="wallet-default-asset">Default asset</label>
-              <select
-                id="wallet-default-asset"
-                value={preferredAssetId}
-                onChange={(event) => setPreferredAssetId(event.target.value)}
-              >
-                <option value="">Choose automatically</option>
-                {assets
-                  .filter((asset) => asset.lifecycle === 'ACTIVE')
-                  .map((asset) => (
-                    <option key={asset.id} value={asset.id}>
-                      {asset.displayName} ({asset.symbol})
-                    </option>
-                  ))}
-              </select>
-              <p>
-                Wallet ID: <code>{wallet?.id ?? 'Loading...'}</code>. Changing settings does not
-                create a second wallet or issue funds.
-              </p>
-              <button className="primary-button">Save wallet setup</button>
-            </fieldset>
-          </form>
-        </details>
-        <div className="admin-form">
+        {view === 'legacy' && (
+          <details className="legacy-wallet-preferences" open={showLegacyPreferences}>
+            <summary>Legacy demo wallet preferences</summary>
+            <form
+              className="admin-form"
+              onSubmit={(event) =>
+                submit(event, async () => {
+                  if (!wallet) return;
+                  const saved = await walletWrite<{ wallet: WalletV2 }>(
+                    user.id,
+                    'v2/wallet/settings',
+                    {
+                      displayName,
+                      preferredAssetId: preferredAssetId || null,
+                      revision: wallet.configurationRevision ?? '0',
+                    },
+                    { signal: lifetime.current!.signal },
+                  );
+                  if (lifetime.current!.signal.aborted) return;
+                  setWallet(saved.wallet);
+                  setDisplayName(saved.wallet.displayName ?? displayName);
+                  setPreferredAssetId(saved.wallet.preferredAssetId ?? '');
+                  onChanged();
+                })
+              }
+            >
+              <fieldset disabled={busy || !wallet}>
+                <h3>Legacy demo preferences</h3>
+                <label>
+                  Wallet name
+                  <input
+                    required
+                    maxLength={60}
+                    value={displayName}
+                    onChange={(event) => setDisplayName(event.target.value)}
+                  />
+                </label>
+                <label htmlFor="wallet-default-asset">Default asset</label>
+                <select
+                  id="wallet-default-asset"
+                  value={preferredAssetId}
+                  onChange={(event) => setPreferredAssetId(event.target.value)}
+                >
+                  <option value="">Choose automatically</option>
+                  {assets
+                    .filter((asset) => asset.lifecycle === 'ACTIVE')
+                    .map((asset) => (
+                      <option key={asset.id} value={asset.id}>
+                        {asset.displayName} ({asset.symbol})
+                      </option>
+                    ))}
+                </select>
+                <p>
+                  Wallet ID: <code>{wallet?.id ?? 'Loading...'}</code>. Changing settings does not
+                  create a second wallet or issue funds.
+                </p>
+                <button className="primary-button">Save wallet setup</button>
+              </fieldset>
+            </form>
+          </details>
+        )}
+        <div className="admin-form" hidden={view !== 'network'}>
           <h3>Connect your testnet wallet</h3>
           <p>
             Prove control of an EVM address with a message signature. Linking is free and does not

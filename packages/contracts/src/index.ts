@@ -92,6 +92,7 @@ export * from './settings.js';
 export * from './requests.js';
 export * from './workspace.js';
 export * from './notifications.js';
+export * from './chat.js';
 export type {
   ChainToken,
   ChainActivity,
